@@ -1,4 +1,4 @@
-{-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Werror -Wall  #-}
+{-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Werror -Wall #-}
 module Main where
 
 import Math.Geometry.Grid.Hexagonal
