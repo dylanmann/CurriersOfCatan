@@ -1,16 +1,12 @@
-TL;DR:
-	EVERYTHING
-
 setup:
 	tiles laid down:
 		beginner is hardcoded, advanced is random
-	each player: 
+	each player:
 		picks color
 		gets 5 settlements, 4 cities, and 15 roads
 		lays down 2 roads and 2 settlements on board
 
 Each turn, each player:
-	rolls for resources (gets resources)
 	then can
 		trade with other players, ports(if adjacent), or bank (4:1)
 		build roads, settlements, or cities
@@ -60,12 +56,3 @@ details:
 
 
 Game over at 10 victory points on your turn!
-
-types of tiles:
-	Hills: produce brick
-	Forest: produce lumber
-	Mountains: produce ore
-	Fields: produce grain
-	Pasture: produces Wool
-	Desert: produces nothing
-
