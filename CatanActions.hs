@@ -43,7 +43,7 @@ cardVP :: DevCard -> Int
 cardVP VictoryPoint = 1
 cardVP _            = 0
 
--- TODO is there nicer way
+-- TODO is there a nicer way
 reduceResources :: [Resource] -> Resources
 reduceResources = foldr (updResource (+1)) (0,0,0,0,0)
 
