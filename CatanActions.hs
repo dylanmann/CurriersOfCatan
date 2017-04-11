@@ -179,14 +179,14 @@ buyCard :: Color -> State Game ()
 buyCard c = do
     game <- S.get
     maybeCard <- drawCard
-    unless (isNothing maybeCard) $ do
-        let card = fromJust maybeCard
-            ps = players game
-            addCard = updPlayer (\p -> p { cards = card : cards p }) c
-            newPs = addCard $ spend [Ore, Wool, Grain] c ps
-            validP = validPlayer $ getPlayer c newPs
-            update = S.put(game { players = newPs })
-        if validP then update else unDrawCard card
+    unless $ isNothing maybeCard
+    let card = fromJust maybeCard
+        ps = players game
+        addCard = updPlayer (\p -> p { cards = card : cards p }) c
+        newPs = addCard $ spend [Ore, Wool, Grain] c ps
+        validP = validPlayer $ getPlayer c newPs
+        update = S.put(game { players = newPs })
+    if validP then update else unDrawCard card
 
 
 -- gameOver is player C has 10 VP (only on their turn)
