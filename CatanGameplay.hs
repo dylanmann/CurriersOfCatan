@@ -25,7 +25,7 @@ initialize = do
     b <- setupBoard
     d <- shuffleM devCards
     p <- setupPlayers
-    return $ MkGame b p [] [] (desert b) Nothing Nothing d
+    return $ Game b p [] [] (desert b) Nothing Nothing d
 
 -- gameOver is current player has 10 VP (only on their turn)
 gameOver :: (MonadState Game m) => Color -> m Bool

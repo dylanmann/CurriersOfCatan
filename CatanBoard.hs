@@ -98,6 +98,6 @@ getTile :: TileLocation -> Board -> Tile
 getTile = undefined
 
 desert :: Board -> TileLocation
-desert b = foldr des (error "desert exists") (getAllTiles b)
+desert = foldr des (error "desert definitely exists") . getAllTiles
            where des (Desert l) _ = l
                  des _ acc = acc

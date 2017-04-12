@@ -25,19 +25,14 @@ details:
 					Year of Plenty
 					Monopoly
 
-	Rolling Robber:
-		If you roll a 7, you get the robber
-		All players with 7+ resources return half (rounded down) to bank
-		Then move robber to any terrain hex or to the desert
-		Steal a random resource card from an opponent with settlement adjacent to the robber
-	Playing development cards:
-		At any time you may play a development card
-		Cannot be one you bought that turn
-	Trade:
-		Must be players turn
-		cannot trade matching resources (ie. 3 ore for 1 ore)
-
-
-
-Game over at 10 victory points on your turn!
-
+Rolling Robber:
+	If you roll a 7, you get the robber
+	All players with 7+ resources return half (rounded down) to bank
+	Then move robber to any terrain hex or to the desert
+	Steal a random resource card from an opponent with settlement adjacent to the robber
+Playing development cards:
+	At any time you may play a development card
+	Cannot be one you bought that turn
+Trade:
+	Must be players turn
+	cannot trade matching resources (ie. 3 ore for 1 ore)

@@ -47,13 +47,13 @@ addResources r p = p {resources = Map.union r $ resources p}
 
 
 -- Players can change with the state
-data Player = MkPlayer {name::Name,
+data Player = Player {name::Name,
                         resources::Resources,
                         cards::[DevCard]}
     deriving (Read, Show, Eq)
 
 newPlayer :: Name -> Player
-newPlayer n = MkPlayer n emptyResources []
+newPlayer n = Player n emptyResources []
 
 makePlayers :: [(Color,Name)] -> Players
 makePlayers = foldr add Map.empty
@@ -66,14 +66,14 @@ type Roads = [(CornerLocation, CornerLocation, Color)]
 
 -- Game is going to be updated via the State monad throughout the
 -- execution of the program
-data Game = MkGame {board       :: Board,
-                    players     :: Players,
-                    roads       :: Roads,
-                    buildings   :: [Building],
-                    robberTile  :: TileLocation,
-                    longestRoad :: Maybe Color,
-                    largestArmy :: Maybe Color,
-                    deck        :: [DevCard] }
+data Game = Game {board       :: Board,
+                  players     :: Players,
+                  roads       :: Roads,
+                  buildings   :: [Building],
+                  robberTile  :: TileLocation,
+                  longestRoad :: Maybe Color,
+                  largestArmy :: Maybe Color,
+                  deck        :: [DevCard] }
     deriving (Read, Show, Eq)
 
 
