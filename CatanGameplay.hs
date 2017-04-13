@@ -1,5 +1,5 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 
 module CatanGamePlay where
 
@@ -25,16 +25,17 @@ initialize = do
     b <- setupBoard
     d <- shuffleM devCards
     p <- setupPlayers
-    return $ Game b p [] [] (desert b) Nothing Nothing d
+    return $ Game b p [] [] (desert b) Nothing Nothing d Red
 
 -- gameOver is current player has 10 VP (only on their turn)
-gameOver :: (MonadState Game m) => Color -> m Bool
-gameOver c = do
-    game <- S.get
-    let p = getPlayer c $ players game
-        bVP = sum $ map buildingVP $ filter (ownedBy c) (buildings game)
+gameOver :: (MonadState Game m) => m Bool
+gameOver = do
+    Game{..} <- S.get
+    let c = currentPlayer
+        p = getPlayer c players
+        bVP = sum $ map buildingVP $ filter (ownedBy c) buildings
         cVP = sum $ map cardVP $ cards p
-        armyVP = if largestArmy game == Just c then 2 else 0
+        armyVP = if largestArmy == Just c then 2 else 0
         roadVP = 0 -- TODO: unimplemented
     return $ bVP + cVP + armyVP + roadVP >= 10
 

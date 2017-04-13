@@ -5,7 +5,11 @@ module CatanBoard(Board,Corner,CornerLocation,Tile(..),TileLocation,
                   Resource(..),Terrain(..),Token,desert,getCorner,getAllTiles,
                   getAllCorners,Neighbors(..),Harbor(..),rewardTiles) where
 
+import Math.Geometry.GridMap.Lazy(LGridMap,lazyGridMapIndexed)
+import Math.Geometry.Grid.Hexagonal(HexHexGrid,hexHexGrid)
+import qualified Math.Geometry.GridMap as GM
 import Data.Map(Map)
+import qualified Data.Map as Map
 
 
 data Resource = Brick | Lumber | Ore | Grain | Wool
@@ -20,6 +24,9 @@ tokenOrder :: [Token]
 tokenOrder = [Five, Two, Six, Three, Eight, Ten, Nine, Twelve, Eleven, Four,
               Eight, Ten, Nine, Four, Five, Six, Three, Eleven]
 
+tileIndices :: [TileLocation]
+tileIndices = [(-2,2), (-1,2), (0,2), (1,1), (2,0), (2,-1), (2,-2), (1,-2), (0,-2),
+    (-1,-1), (-2,0), (-2,1), (-1,1), (0,1), (1,0), (1,-1), (0,-1), (-1,0), (0,0)]
 
 --default tile order, starting from top left and circling clockwise inwards
 terrainOrder :: [Terrain]
@@ -55,8 +62,16 @@ data Tile = Paying Terrain Token TileLocation
           | Desert TileLocation
         deriving (Eq, Show, Read)
 
+-- 30 around outside, 18 around inside, 6 around center
+-- corners indexed with radial coordinates where 0 is the far right of the hex
+-- and n-1 is the bottom far right hex
 type Corners = Map CornerLocation Corner
-type Tiles =   Map TileLocation Tile
+type Tiles   = LGridMap HexHexGrid Tile -- 3 sided hexhexgrid
+
+cornerIndices :: [CornerLocation]
+cornerIndices = [0..29] `zip` replicate 30 2 ++
+                [0..17] `zip` replicate 18 1 ++
+                [0.. 5] `zip` replicate 6 0
 
 
 -- type Tiles = ((Tile, Tile, Tile),
@@ -72,30 +87,38 @@ type Tiles =   Map TileLocation Tile
 --                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner),
 --                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner))
 
-type Board = (Tiles, Corners)
+data Board = Board Tiles Corners
 
 rewardTiles :: Reward -> [Tile]
 rewardTiles (OneTile t,_) = [t]
 rewardTiles (TwoTiles t1 t2,_) = [t1, t2]
 rewardTiles (ThreeTiles t1 t2 t3,_) = [t1, t2, t3]
 
+tiles :: [Tile]
+tiles = zipWith3 Paying terrainOrder tokenOrder tileIndices ++
+        [Desert (last tileIndices)]
+
 setupBoard :: IO Board
-setupBoard = undefined
+setupBoard = let ts = lazyGridMapIndexed (hexHexGrid 3) (zip tileIndices tiles)
+                 cs = Map.empty
+             in return $ Board ts cs
+
 
 getCorner :: CornerLocation -> Board -> Corner
 getCorner = undefined
 
 getAllTiles :: Board -> [Tile]
-getAllTiles = undefined
+getAllTiles (Board ts _) = GM.elems ts
 
 getAllCorners :: Board -> [Corner]
 getAllCorners = undefined
 
+-- always x +- 1 but also sometimes need to look inwards or outwards
 adjacentCorners :: CornerLocation -> [CornerLocation]
 adjacentCorners = undefined
 
-getTile :: TileLocation -> Board -> Tile
-getTile = undefined
+getTile :: TileLocation -> Board -> Maybe Tile
+getTile l (Board ts _) = GM.lookup l ts
 
 desert :: Board -> TileLocation
 desert = foldr des (error "desert definitely exists") . getAllTiles

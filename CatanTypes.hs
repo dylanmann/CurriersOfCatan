@@ -66,14 +66,15 @@ type Roads = [(CornerLocation, CornerLocation, Color)]
 
 -- Game is going to be updated via the State monad throughout the
 -- execution of the program
-data Game = Game {board       :: Board,
-                  players     :: Players,
-                  roads       :: Roads,
-                  buildings   :: [Building],
-                  robberTile  :: TileLocation,
-                  longestRoad :: Maybe Color,
-                  largestArmy :: Maybe Color,
-                  deck        :: [DevCard] }
+data Game = Game {board         :: Board,
+                  players       :: Players,
+                  roads         :: Roads,
+                  buildings     :: [Building],
+                  robberTile    :: TileLocation,
+                  longestRoad   :: Maybe Color,
+                  largestArmy   :: Maybe Color,
+                  deck          :: [DevCard],
+                  currentPlayer :: Color}
     deriving (Read, Show, Eq)
 
 
