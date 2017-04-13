@@ -36,3 +36,10 @@ Playing development cards:
 Trade:
 	Must be players turn
 	cannot trade matching resources (ie. 3 ore for 1 ore)
+
+Corner Map needs to get done
+
+REFACTOR CORNERS AND FIX THE MISTAKES I MADE
+
+Add tests for some stuff once board is setup
+
