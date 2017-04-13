@@ -25,15 +25,13 @@ cardVP :: DevCard -> Int
 cardVP VictoryPoint = 1
 cardVP _            = 0
 
-
-rollRewards :: Token -> TileLocation -> Building -> (Color, [Resource])
-rollRewards roll robber b = case b of
-    City c _       -> (c, concatMap (replicate 2) value)
-    Settlement c _ -> (c, value)
-    where value = mapMaybe payingTile (buildingTiles b)
-          payingTile t@(Paying _ token l) | token == roll && l /= robber =
-              produces t
-          payingTile _ = Nothing
+rollRewards :: Board -> Token -> TileLocation -> Building -> (Color, [Resource])
+rollRewards board roll robber b =
+    let notRobber = filter (/= robber) $ buildingTileLocs board b
+        rs = mapMaybe (produces roll . getTile board) notRobber in
+    case b of
+        City c _       -> (c, concatMap (replicate 2) rs)
+        Settlement c _ -> (c, rs)
 
 validPlayer :: Player -> Bool
 validPlayer = all (>= 0) . resources
@@ -49,7 +47,7 @@ recieve rs c ps = foldr step ps rs where
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
     game@Game{..} <- S.get
-    let rewards = map (rollRewards roll robberTile) buildings
+    let rewards = map (rollRewards board roll robberTile) buildings
         step (c, rs) g = let newPs = recieve rs c players in
                         g { players = newPs }
     S.put (foldr step game rewards)
@@ -59,8 +57,8 @@ buildRoad :: CornerLocation -> CornerLocation -> MyState ()
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get
     let c = currentPlayer
-        existing (Settlement c1 (_, l)) = l `elem` [loc1,loc2] && c == c1
-        existing (City       c1 (_, l)) = l `elem` [loc1,loc2] && c == c1
+        existing (Settlement c1 l) = l `elem` [loc1,loc2] && c == c1
+        existing (City       c1 l) = l `elem` [loc1,loc2] && c == c1
         connects (l1,l2,c1) | c == c1 =
           not . null $ [loc1, loc2] `List.intersect` [l1, l2]
         connects _ = False
@@ -74,36 +72,32 @@ buildRoad loc1 loc2 = do
         newRs =  (loc1, loc2, c) : roads
         update = S.put(game { players = newPs, roads = newRs})
     when (validP && newRoad && contiguous) update
-    where
 
-buildCity :: Corner -> MyState ()
-buildCity cor = do
+buildCity :: CornerLocation -> MyState ()
+buildCity loc = do
     game@Game{..} <- S.get
     let c = currentPlayer
         newPs = spend [Ore, Ore, Ore, Grain, Grain] c players
         validP = validPlayer $ getPlayer c newPs
-        validB = Settlement c cor `elem` buildings
-        newBs =  City c cor : List.delete (Settlement c cor) buildings
+        validB = Settlement c loc `elem` buildings
+        newBs  = City c loc : List.delete (Settlement c loc) buildings
         update = S.put(game { players = newPs, buildings = newBs})
     when (validP && validB) update
-    return()
 
--- TODO need to check adjacent clearings
-buildSett :: Corner -> MyState ()
+buildSett :: CornerLocation -> MyState ()
 buildSett cor = do
     game@Game{..} <- S.get
     let c = currentPlayer
         newPs = spend [Brick, Lumber, Wool, Grain] c players
         validP = validPlayer $ getPlayer c newPs
-        validB = containsBuild cor buildings
+        validB = freeAdjacent cor buildings && connects c cor roads
         newBs =  Settlement c cor : buildings
         update = S.put(game { players = newPs, buildings = newBs})
     when (validP && validB) update
-    return()
-    where containsBuild :: Corner -> [Building] -> Bool
-          containsBuild = any . samePlace
-          samePlace new (Settlement _ old) = old == new
-          samePlace new (City _ old)       = old == new
+    where freeAdjacent = all . noTouch
+          noTouch new b = new `notElem` adjacentCorners (buildingLoc b)
+          connects c loc = any (overlap loc c)
+          overlap loc c (l1, l2, c1) = c == c1 && (loc `elem` [l1, l2])
 
 updateArmy :: MyState ()
 updateArmy = do
@@ -132,7 +126,8 @@ unDrawCard card = do
 
 playerTrade :: [Resource] -> Color -> [Resource] -> MyState ()
 playerTrade rs1 c2 rs2
-  | not $ null (rs1 `List.intersect` rs2) = return ()
+  | not $ null $ rs1 `List.intersect` rs2 = return ()
+  | null rs1 || null rs2 = return ()
   | otherwise = do
     game@Game{..} <- S.get
     let c1 = currentPlayer
@@ -163,16 +158,14 @@ tradeWithRatio ratio r1 r2 amountToTrade
 
 genericTrade :: Resource -> Resource -> Int -> MyState Int
 genericTrade r1 r2 amount = do
-    game@Game{..} <- S.get
+    Game{..} <- S.get
     let bs = filter (ownedBy currentPlayer) buildings
+        harborAtBuilding b = snd $ getCorner board (buildingLoc b)
         hs = map harborAtBuilding bs
         trade i = tradeWithRatio i r1 r2 amount
-
     if Just (SpecialHarbor r1) `elem` hs then trade 2
     else if Just GenericHarbor `elem` hs then trade 3
-    else trade 4 where
-        harborAtBuilding (City       _ ((_,h), _)) = h
-        harborAtBuilding (Settlement _ ((_,h), _)) = h
+    else trade 4
 
 -- TODO: actually make the cards do something
 playCard :: DevCard -> MyState ()
@@ -198,7 +191,8 @@ buyCard = do
             update = S.put(game { players = newPs })
         if validP then update else unDrawCard card
 
--- discard needs to be randomized
+
+-- TODO: discard needs to be randomized
 rollSevenPenalty :: MyState ()
 rollSevenPenalty = do
     game@Game{..} <- S.get
@@ -210,19 +204,20 @@ rollSevenPenalty = do
                           spend (take (length l `quot` 2) l) c
 
 
--- TODO pick a player to steal from, pick resource to take
+-- TODO: pick a player to steal from, pick resource to take
 moveRobber :: TileLocation -> MyState ()
 moveRobber t = do
     game@Game{..} <- S.get
-    let options = mapMaybe playerAtCorner buildings
+    let options = mapMaybe (playerAtCorner board) buildings
     S.put(game{robberTile = t})
     case options of
         []  -> return()
         c:_ -> case allResources $ getPlayer c players of
                     []    -> return()
                     hd:_ -> S.put(game {players = spend [hd] c players})
-    where
-      locs = map (\x -> case x of {Paying _ _ l -> l ; Desert l -> l})
-      playerAtCorner b@(City c _) | t `elem` locs (buildingTiles b) = Just c
-      playerAtCorner b@(Settlement c _) | t `elem` locs (buildingTiles b) = Just c
-      playerAtCorner _ = Nothing
+    where playerAtCorner board b =
+           let corner = getCorner board (buildingLoc b) in
+           if t `elem` rewardLocs corner
+            then Just $ buildingColor b
+            else Nothing
+

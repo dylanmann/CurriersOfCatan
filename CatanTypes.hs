@@ -28,13 +28,25 @@ devCards :: [DevCard]
 devCards = replicate 14 Knight ++ replicate 5 VictoryPoint ++ replicate 2 (Progress RoadBuilding) ++ replicate 2 (Progress YearOfPlenty) ++ replicate 2 (Progress Monopoly)
 
 
-data Building = Settlement Color Corner
-              | City       Color Corner
+buildingColor :: Building -> Color
+buildingColor (City c _) = c
+buildingColor (Settlement c _) = c
+
+buildingLoc :: Building -> CornerLocation
+buildingLoc (City _ l) = l
+buildingLoc (Settlement _ l) = l
+
+data Building = Settlement Color CornerLocation
+              | City       Color CornerLocation
     deriving (Read, Show, Eq)
 
-buildingTiles :: Building -> [Tile]
-buildingTiles (City _ (r,_)) = rewardTiles r
-buildingTiles (Settlement _ (r,_)) = rewardTiles r
+buildingTileLocs :: Board -> Building -> [TileLocation]
+buildingTileLocs b (City _ l)       = rewardLocs $ getCorner b l
+buildingTileLocs b (Settlement _ l) = rewardLocs $ getCorner b l
+
+buildingTiles :: Board -> Building -> [Tile]
+buildingTiles b (City _ l)       = rewardTiles b $ getCorner b l
+buildingTiles b (Settlement _ l) = rewardTiles b $ getCorner b l
 
 type Name = String
 
@@ -102,7 +114,7 @@ allResources p = concatMap comb (Map.toList rs)
   where rs = resources p
         comb (r, amount) = replicate amount r
 
-
-produces :: Tile -> Maybe Resource
-produces Desert{} = Nothing
-produces (Paying terr _ _)    = (Just . toEnum . fromEnum) terr
+produces :: Token -> Tile -> Maybe Resource
+produces roll (Paying t token) | roll == token =
+  (Just . toEnum . fromEnum) t
+produces _ _ = Nothing
