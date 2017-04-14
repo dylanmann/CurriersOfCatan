@@ -7,11 +7,23 @@ import CatanBoard
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
+import Debug.Trace(trace)
 
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
-type MyState = S.StateT Game
+type MyState = S.StateT Game IO
+
+data PlayerAction = BuildRoad CornerLocation CornerLocation
+                  | BuildCity CornerLocation
+                  | BuildSettlement CornerLocation
+                  | PlayCard ProgressCard
+                  | BuyCard
+                  | TradeWithBank Resource Resource Int
+                  | TradeWithPlayer [Resource] Color [Resource]
+                  | EndTurn
+                  | EndGame
+
 
 buildingVP :: Building -> Int
 buildingVP Settlement{} = 1
@@ -20,9 +32,6 @@ buildingVP City{}       = 2
 cardVP :: DevCard -> Int
 cardVP VictoryPoint = 1
 cardVP _            = 0
-
-validPlayer :: Player -> Bool
-validPlayer = all (>= 0) . resources
 
 spend :: [Resource] -> Color ->  Players -> Players
 spend rs c ps = foldr step ps rs where
@@ -42,11 +51,14 @@ rollRewards board roll robber b =
 
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
+    S.liftIO $ putStrLn "GOING"
     game@Game{..} <- S.get
     let rewards = map (rollRewards board roll robberTile) buildings
+        s x = trace ("REWARDS:" ++ show x) x
         step (c, rs) g = let newPs = recieve rs c players in
-                        g { players = newPs }
-    S.put (foldr step game rewards)
+                        g { players = s newPs }
+    S.put (trace "here" $ foldr step game rewards)
+    S.liftIO $ putStrLn "HERE"
 
 
 buildRoad :: CornerLocation -> CornerLocation -> MyState ()
@@ -95,31 +107,6 @@ buildSett cor = do
           connects c loc = any (overlap loc c)
           overlap loc c (l1, l2, c1) = c == c1 && (loc `elem` [l1, l2])
 
-updateArmy :: MyState ()
-updateArmy = do
-    game@Game{..} <- S.get
-    let c = currentPlayer
-        currentP = getPlayer c players
-        army = length . filter (== Knight) . cards
-        update = S.put (game { largestArmy = Just c })
-    case largestArmy of
-        Just leader | army currentP > army (getPlayer leader players) -> update
-        Nothing     | army currentP >= 5                              -> update
-        _ -> return ()
-
-drawCard :: MyState (Maybe DevCard)
-drawCard = do
-    game@Game{..} <- S.get
-    case deck of
-      [] -> return Nothing
-      card : rest -> do S.put( game { deck = rest } )
-                        return $ Just card
-
-unDrawCard :: DevCard -> MyState ()
-unDrawCard card = do
-    game <- S.get
-    S.put (game { deck = card : (deck game) })
-
 playerTrade :: [Resource] -> Color -> [Resource] -> MyState ()
 playerTrade rs1 c2 rs2
   | not $ null $ rs1 `List.intersect` rs2 = return ()
@@ -164,14 +151,41 @@ genericTrade r1 r2 amount = do
     else trade 4
 
 -- TODO: actually make the cards do something
-playCard :: DevCard -> MyState ()
-playCard card = do
+playCard :: ProgressCard -> MyState ()
+playCard prog = do
     game@Game{..} <- S.get
     let c = currentPlayer
+        card = Progress prog
         Player{..} = getPlayer c players
     unless (notElem card cards) $ do
         let newCards p = p{cards = List.delete card cards}
         S.put(game {players = updPlayer newCards c players})
+
+
+updateArmy :: MyState ()
+updateArmy = do
+    game@Game{..} <- S.get
+    let c = currentPlayer
+        currentP = getPlayer c players
+        army = length . filter (== Knight) . cards
+        update = S.put (game { largestArmy = Just c })
+    case largestArmy of
+        Just leader | army currentP > army (getPlayer leader players) -> update
+        Nothing     | army currentP >= 5                              -> update
+        _ -> return ()
+
+drawCard :: MyState (Maybe DevCard)
+drawCard = do
+    game@Game{..} <- S.get
+    case deck of
+      [] -> return Nothing
+      card : rest -> do S.put( game { deck = rest } )
+                        return $ Just card
+
+unDrawCard :: DevCard -> MyState ()
+unDrawCard card = do
+    game <- S.get
+    S.put (game { deck = card : (deck game) })
 
 
 buyCard :: MyState ()
@@ -216,3 +230,15 @@ moveRobber t = do
            if t `elem` rewardLocs corner
             then Just $ buildingColor b
             else Nothing
+
+-- gameOver is current player has 10 VP (only on their turn)
+gameOver :: MyState Bool
+gameOver = do
+    Game{..} <- S.get
+    let c = currentPlayer
+        p = getPlayer c players
+        bVP = sum $ map buildingVP $ filter ((== c) . buildingColor) buildings
+        cVP = sum $ map cardVP $ cards p
+        armyVP = if largestArmy == Just c then 2 else 0
+        roadVP = 0 -- TODO: unimplemented
+    return $ bVP + cVP + armyVP + roadVP >= 10

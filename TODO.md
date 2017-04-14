@@ -43,3 +43,4 @@ REFACTOR CORNERS AND FIX THE MISTAKES I MADE
 
 Add tests for some stuff once board is setup
 
+Make an Actions Type:  we get user input and then we get back an action which we can handle.
