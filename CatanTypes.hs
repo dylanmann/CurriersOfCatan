@@ -1,7 +1,13 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanTypes where
+module CatanTypes(getResource, updResource,Color(..),
+                  ProgressCard(..),DevCard(..),devCards,buildingColor,
+                  buildingLoc,Building(..),buildingTileLocs,buildingTiles,
+                  Name, Resources, Players, Player(..),Roads, Game(..),
+                  getPlayer, allPlayers, updPlayer, allResources, produces,
+                  makePlayers, nextPlayer)
+                  where
 
 import CatanBoard
 import qualified Data.Map as Map
@@ -10,9 +16,6 @@ import Data.Maybe(fromMaybe, fromJust)
 
 data Color = Blue | Red | Orange | White
     deriving (Enum, Read, Show, Eq, Ord)
-
-allColors :: [Color]
-allColors = [Blue, Red, Orange, White]
 
 data ProgressCard = RoadBuilding
                   | YearOfPlenty
@@ -54,9 +57,6 @@ type Resources = Map Resource Int
 emptyResources :: Resources
 emptyResources = Map.empty
 
-addResources :: Resources -> Player -> Player
-addResources r p = p {resources = Map.union r $ resources p}
-
 
 -- Players can change with the state
 data Player = Player {name::Name,
@@ -94,9 +94,6 @@ data Game = Game {board         :: Board,
 getResource :: Resource -> Resources -> Int
 getResource r = fromMaybe 0 . Map.lookup r
 
-setResource :: Resource -> Int -> Resources -> Resources
-setResource = Map.insert
-
 updResource :: (Int -> Int) -> Resource -> Resources -> Resources
 updResource = Map.adjust
 
@@ -118,3 +115,7 @@ produces :: Token -> Tile -> Maybe Resource
 produces roll (Paying t token) | roll == token =
   (Just . toEnum . fromEnum) t
 produces _ _ = Nothing
+
+nextPlayer :: Color -> Color
+nextPlayer White = Blue
+nextPlayer c = succ c

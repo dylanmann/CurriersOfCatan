@@ -2,8 +2,9 @@
 
 module CatanBoard(Board(..),Corner,Corners,Tiles,CornerLocation,Tile(..),TileLocation,
                   getTile,setupBoard,adjacentCorners,tokenOrder,Reward,
-                  Resource(..),Terrain(..),Token,desert,getCorner,
-                  Neighbors(..),Harbor(..),rewardTiles,rewardLocs)
+                  Resource(..),Terrain(..),Token(..),desert,getCorner,
+                  Neighbors(..),Harbor(..),rewardTiles,rewardLocs,
+                  makeCornerLocation,makeTileLocation)
                   where
 
 -- import Math.Geometry.GridMap.Lazy(LGridMap,lazyGridMapIndexed)
@@ -28,15 +29,15 @@ tokenOrder = [Five, Two, Six, Three, Eight, Ten, Nine, Twelve, Eleven, Four,
               Eight, Ten, Nine, Four, Five, Six, Three, Eleven]
 
 tileIndices :: [TileLocation]
-tileIndices = [8..11] `zip` repeat 2 ++ [0..7] `zip` repeat 2 ++
-              [4, 5] `zip` repeat 1 ++ [0..3] `zip` repeat 1 ++
+tileIndices = ([8..11] ++ [0..7]) `zip` repeat 2 ++
+              ([4,  5] ++ [0..3]) `zip` repeat 1 ++
               [(0, 0)]
 
 --default tile order, starting from top left and circling clockwise inwards
 terrainOrder :: [Terrain]
 terrainOrder = [Mountains, Pasture, Forest, Hills, Mountains, Pasture, Pasture,
-        Fields, Hills, Forest, Fields, Fields, Hills, Pasture, Forest,Fields,
-        Mountains, Forest]
+                Fields, Hills, Forest, Fields, Fields, Hills, Pasture, Forest,
+                Fields, Mountains, Forest]
 
 data Terrain = Hills     -- produce brick
              | Forest    -- produce lumber
@@ -60,11 +61,26 @@ type Reward = (Neighbors, Maybe Harbor)
 type Corner = Reward
 type CornerLocation = (Int, Int)
 
+makeCornerLocation :: Int -> Int -> Maybe CornerLocation
+makeCornerLocation x y | x < 0 || y < 0 = Nothing
+makeCornerLocation x 0 | x < 6          = Just (x, 0)
+makeCornerLocation x 1 | x < 18         = Just (x, 1)
+makeCornerLocation x 2 | x < 30         = Just (x, 2)
+makeCornerLocation _ _                  = Nothing
+
 -- do we need TileLocation???
 type TileLocation = (Int, Int)
 data Tile = Paying Terrain Token
           | Desert
         deriving (Eq, Show, Read)
+
+makeTileLocation :: Int -> Int -> Maybe CornerLocation
+makeTileLocation x y | x < 0 || y < 0 = Nothing
+makeTileLocation 0 0                  = Just (0, 0)
+makeTileLocation x 1 | x < 6          = Just (x, 1)
+makeTileLocation x 2 | x < 12         = Just (x, 2)
+makeTileLocation _ _                  = Nothing
+
 
 -- 30 around outside, 18 around inside, 6 around center
 -- corners indexed with radial coordinates where 0 is the far right of the hex
@@ -107,30 +123,15 @@ neighbors = innerNeighbors ++ middleNeighbors ++ outerNeighbors
 allCorners :: [Corner]
 allCorners = zip neighbors harbors
 
--- TODO lol
 harbors :: [Maybe Harbor]
 harbors = replicate 54 Nothing
-
-
--- type Tiles = ((Tile, Tile, Tile),
---               (Tile, Tile, Tile, Tile),
---               (Tile, Tile, Tile, Tile, Tile),
---               (Tile, Tile, Tile, Tile),
---               (Tile, Tile, Tile))
-
--- type Corners = ((Corner, Corner, Corner, Corner, Corner, Corner, Corner),
---                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner),
---                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner),
---                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner),
---                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner, Corner),
---                 (Corner, Corner, Corner, Corner, Corner, Corner, Corner))
 
 data Board = Board {tiles :: Tiles, corners :: Corners}
   deriving(Read, Show, Eq)
 
 rewardLocs :: Reward -> [TileLocation]
-rewardLocs (OneTile t, _) =  [t]
-rewardLocs (TwoTiles t1 t2, _) = [t1, t2]
+rewardLocs (OneTile t, _)           = [t]
+rewardLocs (TwoTiles t1 t2, _)      = [t1, t2]
 rewardLocs (ThreeTiles t1 t2 t3, _) = [t1, t2, t3]
 
 rewardTiles :: Board -> Reward -> [Tile]

@@ -11,27 +11,15 @@ import qualified Control.Monad.State as S
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
-type MyState = S.State Game
+type MyState = S.StateT Game
 
 buildingVP :: Building -> Int
 buildingVP Settlement{} = 1
 buildingVP City{}       = 2
 
-ownedBy :: Color -> Building -> Bool
-ownedBy c1 (Settlement c2 _) = c1 == c2
-ownedBy c1 (City c2 _)       = c1 == c2
-
 cardVP :: DevCard -> Int
 cardVP VictoryPoint = 1
 cardVP _            = 0
-
-rollRewards :: Board -> Token -> TileLocation -> Building -> (Color, [Resource])
-rollRewards board roll robber b =
-    let notRobber = filter (/= robber) $ buildingTileLocs board b
-        rs = mapMaybe (produces roll . getTile board) notRobber in
-    case b of
-        City c _       -> (c, concatMap (replicate 2) rs)
-        Settlement c _ -> (c, rs)
 
 validPlayer :: Player -> Bool
 validPlayer = all (>= 0) . resources
@@ -43,6 +31,14 @@ spend rs c ps = foldr step ps rs where
 recieve :: [Resource] -> Color ->  Players -> Players
 recieve rs c ps = foldr step ps rs where
   step r = updPlayer (\p -> p {resources = updResource (+1) r $ resources p}) c
+
+rollRewards :: Board -> Token -> TileLocation -> Building -> (Color, [Resource])
+rollRewards board roll robber b =
+    let notRobber = filter (/= robber) $ buildingTileLocs board b
+        rs = mapMaybe (produces roll . getTile board) notRobber in
+    case b of
+        City c _       -> (c, concatMap (replicate 2) rs)
+        Settlement c _ -> (c, rs)
 
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
@@ -159,7 +155,7 @@ tradeWithRatio ratio r1 r2 amountToTrade
 genericTrade :: Resource -> Resource -> Int -> MyState Int
 genericTrade r1 r2 amount = do
     Game{..} <- S.get
-    let bs = filter (ownedBy currentPlayer) buildings
+    let bs = filter (\b -> currentPlayer == buildingColor b) buildings
         harborAtBuilding b = snd $ getCorner board (buildingLoc b)
         hs = map harborAtBuilding bs
         trade i = tradeWithRatio i r1 r2 amount
@@ -220,4 +216,3 @@ moveRobber t = do
            if t `elem` rewardLocs corner
             then Just $ buildingColor b
             else Nothing
-
