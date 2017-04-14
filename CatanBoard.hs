@@ -1,9 +1,9 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanBoard(Board,Corner,CornerLocation,Tile(..),TileLocation,
+module CatanBoard(Board(..),Corner,Corners,Tiles,CornerLocation,Tile(..),TileLocation,
                   getTile,setupBoard,adjacentCorners,tokenOrder,Reward,
-                  Resource(..),Terrain(..),Token,desert,getCorner,getAllTiles,
-                  getAllCorners,Neighbors(..),Harbor(..),rewardTiles,rewardLocs)
+                  Resource(..),Terrain(..),Token,desert,getCorner,
+                  Neighbors(..),Harbor(..),rewardTiles,rewardLocs)
                   where
 
 -- import Math.Geometry.GridMap.Lazy(LGridMap,lazyGridMapIndexed)
@@ -68,23 +68,48 @@ data Tile = Paying Terrain Token
 
 -- 30 around outside, 18 around inside, 6 around center
 -- corners indexed with radial coordinates where 0 is the far right of the hex
--- and n-1 is the bottom far right hex
+-- and the coordinates go clockwise
 type Corners = Map CornerLocation Corner
-type Tiles   = Map TileLocation Tile
+
+-- 1 then 6 then 12, indexed clockwise
+type Tiles = Map TileLocation Tile
 
 cornerIndices :: [CornerLocation]
 cornerIndices = [0.. 5] `zip` repeat 0 ++
                 [0..17] `zip` repeat 1 ++
                 [0..29] `zip` repeat 2
 
--- neighbors :: Tiles -> [Neighbors]
--- neighbors ts = zipWith3 ThreeTiles (repeat (get (0,0))) (map get (zip [0..5] repeat 0)) (zip
---     where get l = Map.lookup l ts
+innerNeighbors :: [Neighbors]
+innerNeighbors =
+  zipWith3 ThreeTiles n1 n2 n3 where
+    n1 = repeat 0     `zip` repeat 0
+    n2 = (5 : [0..4]) `zip` repeat 0
+    n3 = [0..5]       `zip` repeat 0
 
--- TODO
+middleNeighbors :: [Neighbors]
+middleNeighbors =
+  zipWith3 ThreeTiles n1 n2 n3 where
+    n1 = concatMap (replicate 3) (zip [0..5] $ repeat 1)
+    n2 = take 18 $ outOutIn 0 0
+    n3 = (11 : oneThenTwo 0) `zip` repeat 2
+    outOutIn o i = (o, 2) : (o + 1, 2) : (i, 1) : outOutIn (o + 2) (i + 1)
+    oneThenTwo i = i : i + 1 : i + 1 : oneThenTwo (i + 2)
+
+outerNeighbors :: [Neighbors]
+outerNeighbors = TwoTiles (11, 2) (0, 2) : take 29 (pat 0) where
+  pat x = one x : one x : two x (x + 1) : one (x + 1) : two (x + 1) (x + 2) : pat (x + 2)
+  one y = OneTile (y, 2)
+  two y1 y2 = TwoTiles (y1, 2) (y2, 2)
+
+neighbors :: [Neighbors]
+neighbors = innerNeighbors ++ middleNeighbors ++ outerNeighbors
+
+allCorners :: [Corner]
+allCorners = zip neighbors harbors
+
+-- TODO lol
 harbors :: [Maybe Harbor]
 harbors = replicate 54 Nothing
-
 
 
 -- type Tiles = ((Tile, Tile, Tile),
@@ -112,27 +137,28 @@ rewardTiles :: Board -> Reward -> [Tile]
 rewardTiles b r = map (getTile b) (rewardLocs r)
 
 allTiles :: [Tile]
-allTiles = zipWith Paying terrainOrder tokenOrder ++
-        [Desert]
+allTiles = zipWith Paying terrainOrder tokenOrder ++ [Desert]
 
 setupBoard :: IO Board
 setupBoard = let ts = Map.fromList (zip tileIndices allTiles)
-                 cs = Map.empty
+                 cs = Map.fromList (zip cornerIndices allCorners)
              in return $ Board ts cs
 
 
 getCorner :: Board -> CornerLocation -> Corner
-getCorner = undefined
-
-getAllTiles :: Board -> [Tile]
-getAllTiles (Board ts _) = Map.elems ts
-
-getAllCorners :: Board -> [Corner]
-getAllCorners = undefined
+getCorner (Board _ cs) c = fromJust $ Map.lookup c cs
 
 -- always x +- 1 but also sometimes need to look inwards or outwards
 adjacentCorners :: CornerLocation -> [CornerLocation]
-adjacentCorners = undefined
+adjacentCorners (0, 0) = [(17, 1), (5, 0), (1,0)]
+adjacentCorners (0, 1) = [(29, 2), (5, 0), (1,0)]
+adjacentCorners (0, 2) = [(29, 2), (1, 2)]
+adjacentCorners (x, 0) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
+adjacentCorners (x, 1) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
+adjacentCorners (x, 2)
+  | (x `mod` 5) `elem` [0, 1, 3] = [(x - 1, 2), (x + 1, 2)]
+  | otherwise = [(x - 1, 2), (x + 1, 2), (x `quot` 5, 1)]
+adjacentCorners _ = error "invalid corner"
 
 getTile :: Board -> TileLocation -> Tile
 getTile (Board ts _) l = fromJust $ Map.lookup l ts
