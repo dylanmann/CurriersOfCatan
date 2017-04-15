@@ -3,7 +3,8 @@ module CatanActionParsing (getNextAction, handleAction) where
 import Control.Applicative
 import Data.Char(isSpace)
 import Data.Maybe(isJust, fromJust)
-
+import Control.Monad(when, unless)
+import Control.Monad.IO.Class(liftIO, MonadIO)
 import qualified Parser as P
 import qualified ParserCombinators as P
 import CatanActions
@@ -69,23 +70,44 @@ tradeP = P.string "trade" *> (TradeWithPlayer <$> resourcesP <*> colorP <*> reso
 actionP :: P.Parser PlayerAction
 actionP = P.choice [roadP, cityP, settP, cardP, playCardP, bankP, tradeP, constP "n" EndTurn, constP "q" EndGame]
 
+help :: String
+help = unlines
+       ["BuildRoad: road <corner1 x> <corner1 r> <corner2 x> <corner2 r>",
+        "Build City: city <corner x> <corner r>",
+        "Build Settlement: sett <corner x> <corner r>",
+        "Buy Card: card",
+        "Play Card: progress <card>",
+        "Trade with Bank or harbor: bank <Resource> <Resource> <Int>",
+        "Trade with player: trade <Resources> <Color> <Resources>",
+        "Next Turn: n",
+        "End Game: q"]
+
 getNextAction :: IO PlayerAction
 getNextAction = do
     action <- getLine
     case P.parse actionP action of
-        Left _ -> putStrLn "not a command" >> getNextAction
+        Left _ -> putStrLn help >> getNextAction
         Right act -> return act
 
-ignore ::Monad m => m a -> m Bool
-ignore m = m >> return False
+ignoreI :: MonadIO m => m Int -> m Bool
+ignoreI m = do
+  res <- m
+  when (res == 0) $ liftIO $ putStrLn "not successful"
+  return False
+
+ignoreB :: MonadIO m => m Bool -> m Bool
+ignoreB m = do
+  res <- m
+  unless res $ liftIO $ putStrLn "not successful"
+  return False
 
 handleAction :: PlayerAction -> MyState Bool
-handleAction (BuildRoad l1 l2) = ignore $ buildRoad l1 l2
-handleAction (BuildCity l) = ignore $ buildCity l
-handleAction (BuildSettlement l) = ignore $ buildSett l
-handleAction (PlayCard c) = ignore $ playCard c
-handleAction BuyCard = ignore buyCard
-handleAction (TradeWithBank r1 r2 i) = ignore $ genericTrade r1 r2 i
-handleAction (TradeWithPlayer rs1 c rs2) = ignore $ playerTrade rs1 c rs2
+handleAction (BuildRoad l1 l2) = ignoreB $ buildRoad l1 l2
+handleAction (BuildCity l) = ignoreB $ buildCity l
+handleAction (BuildSettlement l) = ignoreB $ buildSett l
+handleAction (PlayCard c) = ignoreB $ playCard c
+handleAction BuyCard = ignoreB buyCard
+handleAction (TradeWithBank r1 r2 i) = ignoreI $ genericTrade r1 r2 i
+handleAction (TradeWithPlayer rs1 c rs2) = ignoreB $ playerTrade rs1 c rs2
 handleAction EndTurn = return True
 handleAction EndGame = error "over"

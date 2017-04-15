@@ -119,14 +119,14 @@ nextPlayer c = succ c
 
 instance Show Game where
   show Game{..} = unlines
-                ["Game { board = " ++ show board ++ ",",
+                ["Game { board = " ++ "board" ++ ",",
                  "       players = " ++ show players ++ ",",
                  "       roads = " ++ show roads ++ ",",
                  "       buildings = " ++ show buildings ++ ",",
                  "       robberTile = " ++ show robberTile ++ ",",
                  "       longestRoad = " ++ show longestRoad ++ ",",
                  "       largestArmy = " ++ show largestArmy ++ ",",
-                 "       deck = " ++ show deck ++ ",",
+                 "       deck = " ++ "deck" ++ ",",
                  "       currentPlayer = " ++ show currentPlayer,
                  "}"]
 

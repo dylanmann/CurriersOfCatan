@@ -6,8 +6,7 @@ import CatanTypes
 import CatanBoard
 
 import qualified Data.List as List
-import qualified Control.Monad.Trans.State.Strict as S
--- import qualified Control.Monad.State as S
+import qualified Control.Monad.State as S
 import Debug.Trace(trace)
 
 import Control.Monad.IO.Class(liftIO)
@@ -49,7 +48,7 @@ rollRewards board roll robber b =
         rs = mapMaybe (produces roll . getTile board) notRobber in
     case b of
         City c _       -> (c, concatMap (replicate 2) rs)
-        Settlement c _ -> trace (show (c, rs)) (c, rs)
+        Settlement c _ -> (c, rs)
 
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
@@ -78,10 +77,10 @@ buildRoad loc1 loc2 = do
         contiguous = (any existing buildings) || (any connects roads)
         newRs =  (loc1, loc2, c) : roads
         update = S.put(game { players = newPs, roads = newRs})
-    when (validP && newRoad && contiguous) (update >> return True)
-    return False
+    if validP && newRoad && contiguous then update >> return True else
+        return False
 
-buildCity :: CornerLocation -> MyState ()
+buildCity :: CornerLocation -> MyState Bool
 buildCity loc = do
     game@Game{..} <- S.get
     let c = currentPlayer
@@ -90,9 +89,10 @@ buildCity loc = do
         validB = Settlement c loc `elem` buildings
         newBs  = City c loc : List.delete (Settlement c loc) buildings
         update = S.put(game { players = newPs, buildings = newBs})
-    when (validP && validB) update
+    if validP && validB then update >> return True else
+        return False
 
-buildSett :: CornerLocation -> MyState ()
+buildSett :: CornerLocation -> MyState Bool
 buildSett cor = do
     game@Game{..} <- S.get
     let c = currentPlayer
@@ -101,16 +101,17 @@ buildSett cor = do
         validB = freeAdjacent cor buildings && connects c cor roads
         newBs =  Settlement c cor : buildings
         update = S.put(game { players = newPs, buildings = newBs})
-    when (validP && validB) update
+    if validP && validB then update >> return True else
+        return False
     where freeAdjacent = all . noTouch
           noTouch new b = new `notElem` adjacentCorners (buildingLoc b)
           connects c loc = any (overlap loc c)
           overlap loc c (l1, l2, c1) = c == c1 && (loc `elem` [l1, l2])
 
-playerTrade :: [Resource] -> Color -> [Resource] -> MyState ()
+playerTrade :: [Resource] -> Color -> [Resource] -> MyState Bool
 playerTrade rs1 c2 rs2
-  | not $ null $ rs1 `List.intersect` rs2 = return ()
-  | null rs1 || null rs2 = return ()
+  | not $ null $ rs1 `List.intersect` rs2 = return False
+  | null rs1 || null rs2 = return False
   | otherwise = do
     game@Game{..} <- S.get
     let c1 = currentPlayer
@@ -120,7 +121,7 @@ playerTrade rs1 c2 rs2
         validP1 = validPlayer $ getPlayer c1 newPs
         validP2 = validPlayer $ getPlayer c2 newPs
         update = S.put(game { players = newPs })
-    when (validP1 && validP2) update
+    if validP1 && validP2 then update >> return True else return False
 
 -- Trade resources to the bank if you have them
 tradeWithRatio :: Int -> Resource -> Resource -> Int -> MyState Int
@@ -151,16 +152,16 @@ genericTrade r1 r2 amount = do
     else trade 4
 
 -- TODO: actually make the cards do something
-playCard :: ProgressCard -> MyState ()
+playCard :: ProgressCard -> MyState Bool
 playCard prog = do
     game@Game{..} <- S.get
     let c = currentPlayer
         card = Progress prog
         Player{..} = getPlayer c players
-    unless (notElem card cards) $ do
+    if notElem card cards then return False else do
         let newCards p = p{cards = List.delete card cards}
         S.put(game {players = updPlayer newCards c players})
-
+        return True
 
 updateArmy :: MyState ()
 updateArmy = do
@@ -188,11 +189,11 @@ unDrawCard card = do
     S.put (game { deck = card : (deck game) })
 
 
-buyCard :: MyState ()
+buyCard :: MyState Bool
 buyCard = do
     game@Game{..} <- S.get
     maybeCard <- drawCard
-    unless (isNothing maybeCard) $ do
+    if (isNothing maybeCard) then return False else do
         let c = currentPlayer
             card = fromJust maybeCard
             addCard = updPlayer (\p -> p { cards = card : cards p }) c
@@ -200,7 +201,8 @@ buyCard = do
             validP = validPlayer $ getPlayer c newPs
             update = S.put(game { players = newPs })
         if validP then update else unDrawCard card
-
+        updateArmy
+        return validP
 
 -- TODO: discard needs to be randomized
 rollSevenPenalty :: MyState ()
