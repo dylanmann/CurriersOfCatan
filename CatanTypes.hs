@@ -6,7 +6,7 @@ module CatanTypes(getResource, updResource,Color(..),
                   buildingLoc,Building(..),buildingTileLocs,buildingTiles,
                   Name, Resources, Players, Player(..),Roads, Game(..),
                   getPlayer, allPlayers, updPlayer, allResources, produces,
-                  makePlayers, nextPlayer, validPlayer)
+                  makePlayers, nextPlayer, validPlayer, emptyResources)
                   where
 
 import qualified Data.Map as Map
@@ -54,7 +54,7 @@ type Name = String
 data Resources = Resources (Map Resource Int)
       deriving (Read, Eq)
 emptyResources :: Resources
-emptyResources = Resources Map.empty
+emptyResources = Resources $ foldr (\x -> Map.insert (toEnum x) 0) Map.empty [0..4]
 
 
 -- Players can change with the state
@@ -134,7 +134,7 @@ instance Show Players where
   show (Players ps) = unlines $ map show $ Map.toList ps
 
 instance Show Resources where
-  show (Resources rs) = unlines $ map show $ Map.toList rs
+  show (Resources rs) = show $ Map.toList rs
 
 instance Show Player where
   show Player{..} = unlines ["Player { name = " ++ show name,

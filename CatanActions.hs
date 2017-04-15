@@ -6,9 +6,11 @@ import CatanTypes
 import CatanBoard
 
 import qualified Data.List as List
-import qualified Control.Monad.State as S
+import qualified Control.Monad.Trans.State.Strict as S
+-- import qualified Control.Monad.State as S
 import Debug.Trace(trace)
 
+import Control.Monad.IO.Class(liftIO)
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
@@ -47,21 +49,18 @@ rollRewards board roll robber b =
         rs = mapMaybe (produces roll . getTile board) notRobber in
     case b of
         City c _       -> (c, concatMap (replicate 2) rs)
-        Settlement c _ -> (c, rs)
+        Settlement c _ -> trace (show (c, rs)) (c, rs)
 
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
-    S.liftIO $ putStrLn "GOING"
+    liftIO $ putStrLn "GOING"
     game@Game{..} <- S.get
     let rewards = map (rollRewards board roll robberTile) buildings
-        s x = trace ("REWARDS:" ++ show x) x
-        step (c, rs) g = let newPs = recieve rs c players in
-                        g { players = s newPs }
-    S.put (trace "here" $ foldr step game rewards)
-    S.liftIO $ putStrLn "HERE"
+        step (c, rs) ps = recieve rs c ps
+    S.put (game {players = foldr step players rewards})
 
 
-buildRoad :: CornerLocation -> CornerLocation -> MyState ()
+buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get
     let c = currentPlayer
@@ -79,7 +78,8 @@ buildRoad loc1 loc2 = do
         contiguous = (any existing buildings) || (any connects roads)
         newRs =  (loc1, loc2, c) : roads
         update = S.put(game { players = newPs, roads = newRs})
-    when (validP && newRoad && contiguous) update
+    when (validP && newRoad && contiguous) (update >> return True)
+    return False
 
 buildCity :: CornerLocation -> MyState ()
 buildCity loc = do

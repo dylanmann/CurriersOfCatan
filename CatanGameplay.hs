@@ -8,7 +8,8 @@ import qualified Control.Monad.Random as Random
 import Control.Monad.Random(MonadRandom)
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO)
-import qualified Control.Monad.State as S
+import qualified Control.Monad.Trans.State.Strict as S
+-- import qualified Control.Monad.State as S
 import CatanBoard
 import CatanTypes
 import CatanActions
@@ -31,7 +32,6 @@ initialize = do
 
 advancePlayer :: MyState ()
 advancePlayer = do
-    game@Game{..} <- S.get
     roll <- rollDice
     case roll of
         2 ->  allocateRewards Two
@@ -45,6 +45,7 @@ advancePlayer = do
         11 -> allocateRewards Eleven
         12 -> allocateRewards Twelve
         _ -> error "impossible"
+    game@Game{..} <- S.get
     S.put(game{currentPlayer = nextPlayer currentPlayer})
     liftIO $ putStr "nextPlayer: "
     liftIO $ print $ nextPlayer currentPlayer

@@ -73,7 +73,7 @@ getNextAction :: IO PlayerAction
 getNextAction = do
     action <- getLine
     case P.parse actionP action of
-        Left _ -> getNextAction
+        Left _ -> putStrLn "not a command" >> getNextAction
         Right act -> return act
 
 ignore ::Monad m => m a -> m Bool
