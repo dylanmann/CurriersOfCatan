@@ -1,4 +1,5 @@
-module CatanActionParsing (getNextAction, handleAction) where
+module CatanActionParsing (getNextAction, handleAction,promptForRobber,
+                           getPlayerChoiceFrom) where
 
 import Control.Applicative
 import Data.Char(isSpace)
@@ -72,21 +73,28 @@ actionP = P.choice [roadP, cityP, settP, cardP, playCardP, bankP, tradeP, constP
 
 help :: String
 help = unlines
-       ["BuildRoad: road <corner1 x> <corner1 r> <corner2 x> <corner2 r>",
-        "Build City: city <corner x> <corner r>",
-        "Build Settlement: sett <corner x> <corner r>",
+       ["BuildRoad: road <Corner1 x> <Corner1 r> <Corner2 x> <Corner2 r>",
+        "Build City: city <Corner x> <Corner r>",
+        "Build Settlement: sett <Corner x> <Corner r>",
         "Buy Card: card",
-        "Play Card: progress <card>",
+        "Play Card: progress <Card>",
         "Trade with Bank or harbor: bank <Resource> <Resource> <Int>",
         "Trade with player: trade <Resources> <Color> <Resources>",
         "Next Turn: n",
-        "End Game: q"]
+        "End Game: q",
+        "Color: Red Blue Orange White",
+        "Resource: Wool Lumber Ore Grain Brick",
+        "Resources is a space separated list of Resources"]
 
-getNextAction :: IO PlayerAction
-getNextAction = do
+prompt :: String
+prompt = " >> "
+
+getNextAction :: Name -> IO PlayerAction
+getNextAction n = do
+    putStr $ n ++ prompt
     action <- getLine
     case P.parse actionP action of
-        Left _ -> putStrLn help >> getNextAction
+        Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
 ignoreI :: MonadIO m => m Int -> m Bool
@@ -111,3 +119,31 @@ handleAction (TradeWithBank r1 r2 i) = ignoreI $ genericTrade r1 r2 i
 handleAction (TradeWithPlayer rs1 c rs2) = ignoreB $ playerTrade rs1 c rs2
 handleAction EndTurn = return True
 handleAction EndGame = error "over"
+
+
+promptForRobber :: IO TileLocation
+promptForRobber = do
+    putStr $ "where do you want to put the robber?"
+    action <- getLine
+    case P.parse tileP action of
+        Left _ -> putStrLn "invalid location" >> promptForRobber
+        Right tile -> return tile
+
+getPlayerChoiceFrom :: [(Color, Name)] -> IO Color
+getPlayerChoiceFrom l = do let p = P.choice $ map (uncurry (flip constP)) l
+                           choice <- getLine
+                           case P.parse p choice of
+                             Left _ -> putStrLn "invalid name" >>
+                                       getPlayerChoiceFrom l
+                             Right c -> return c
+
+
+
+-- getResourceChoiceFrom :: [Resource] -> IO Resource
+-- getResourceChoiceFrom l = do let p :: P.Parser Resource
+--                                  p = P.ensure (`elem` l) resourceP
+--                              choice <- getLine
+--                              case P.parse p choice of
+--                                Left _ -> putStrLn "invalid choice" >>
+--                                          getResourceChoiceFrom l
+--                                Right c -> return c

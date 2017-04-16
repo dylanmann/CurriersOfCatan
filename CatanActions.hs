@@ -9,6 +9,7 @@ import qualified Data.List as List
 import qualified Control.Monad.State as S
 import Debug.Trace(trace)
 
+import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO)
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
@@ -52,7 +53,6 @@ rollRewards board roll robber b =
 
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
-    liftIO $ putStrLn "GOING"
     game@Game{..} <- S.get
     let rewards = map (rollRewards board roll robberTile) buildings
         step (c, rs) ps = recieve rs c ps
@@ -204,34 +204,20 @@ buyCard = do
         updateArmy
         return validP
 
--- TODO: discard needs to be randomized
-rollSevenPenalty :: MyState ()
+rollSevenPenalty :: MyState [Name]
 rollSevenPenalty = do
     game@Game{..} <- S.get
     let isVictim (c, p) = length (allResources p) > 7 && c /= currentPlayer
         victims = filter isVictim (allPlayers players)
-        newPlayers = foldr discard players victims
+    newPlayers <- foldr discard (return players) victims
     S.put(game { players = newPlayers })
-    where discard (c,p) = let l = allResources p in
-                          spend (take (length l `quot` 2) l) c
+    return (map (name . snd) victims)
+    where discard (c,p) mps = do
+            l <- shuffleM (allResources p)
+            ps <- mps
+            return $ spend (take (length l `quot` 2) l) c ps
 
 
--- TODO: pick a player to steal from, pick resource to take
-moveRobber :: TileLocation -> MyState ()
-moveRobber t = do
-    game@Game{..} <- S.get
-    let options = mapMaybe (playerAtCorner board) buildings
-    S.put(game{robberTile = t})
-    case options of
-        []  -> return()
-        c:_ -> case allResources $ getPlayer c players of
-                    []    -> return()
-                    hd:_ -> S.put(game {players = spend [hd] c players})
-    where playerAtCorner board b =
-           let corner = getCorner board (buildingLoc b) in
-           if t `elem` rewardLocs corner
-            then Just $ buildingColor b
-            else Nothing
 
 -- gameOver is current player has 10 VP (only on their turn)
 gameOver :: MyState Bool

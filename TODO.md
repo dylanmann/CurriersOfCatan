@@ -13,7 +13,6 @@ details:
 		player with longest road gets longest road card (>=5 roads)
 			worth 2 victory points
 	Settlement:
-		only if all 3 adjacent intersections are vacant
 	Development Card:
 		3 different kinds of cards:
 			Knight
