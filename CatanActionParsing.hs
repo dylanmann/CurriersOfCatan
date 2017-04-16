@@ -1,5 +1,5 @@
-module CatanActionParsing (getNextAction, handleAction,promptForRobber,
-                           getPlayerChoiceFrom) where
+module CatanActionParsing (getNextAction,promptForRobber,
+                           getChoiceFrom) where
 
 import Control.Applicative
 import Data.Char(isSpace)
@@ -11,11 +11,13 @@ import qualified ParserCombinators as P
 import CatanActions
 import CatanTypes
 import CatanBoard
+
+
 constP :: String -> a -> P.Parser a
 constP s v = const v <$> P.string s
 
 wsP :: P.Parser a -> P.Parser a
-wsP p =  many (P.satisfy isSpace) *> p <* many (P.satisfy isSpace)
+wsP p = many (P.satisfy isSpace) *> p <* many (P.satisfy isSpace)
 
 cornerP :: P.Parser CornerLocation
 cornerP = wsP $ maybeP $ makeCornerLocation <$> wsP P.int <*> wsP P.int
@@ -40,8 +42,8 @@ cardP = constP "card" BuyCard
 
 progressP :: P.Parser ProgressCard
 progressP = P.choice [constP "Monopoly" Monopoly,
-                     constP "YearOfPlenty" YearOfPlenty,
-                     constP "RoadBuilding" RoadBuilding]
+                      constP "YearOfPlenty" YearOfPlenty,
+                      constP "RoadBuilding" RoadBuilding]
 
 playCardP :: P.Parser PlayerAction
 playCardP =  P.string "progress" *> (PlayCard <$> progressP)
@@ -97,53 +99,18 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
-ignoreI :: MonadIO m => m Int -> m Bool
-ignoreI m = do
-  res <- m
-  when (res == 0) $ liftIO $ putStrLn "not successful"
-  return False
-
-ignoreB :: MonadIO m => m Bool -> m Bool
-ignoreB m = do
-  res <- m
-  unless res $ liftIO $ putStrLn "not successful"
-  return False
-
-handleAction :: PlayerAction -> MyState Bool
-handleAction (BuildRoad l1 l2) = ignoreB $ buildRoad l1 l2
-handleAction (BuildCity l) = ignoreB $ buildCity l
-handleAction (BuildSettlement l) = ignoreB $ buildSett l
-handleAction (PlayCard c) = ignoreB $ playCard c
-handleAction BuyCard = ignoreB buyCard
-handleAction (TradeWithBank r1 r2 i) = ignoreI $ genericTrade r1 r2 i
-handleAction (TradeWithPlayer rs1 c rs2) = ignoreB $ playerTrade rs1 c rs2
-handleAction EndTurn = return True
-handleAction EndGame = error "over"
-
-
 promptForRobber :: IO TileLocation
 promptForRobber = do
-    putStr $ "where do you want to put the robber?"
+    putStr "where do you want to put the robber?"
     action <- getLine
     case P.parse tileP action of
         Left _ -> putStrLn "invalid location" >> promptForRobber
         Right tile -> return tile
 
-getPlayerChoiceFrom :: [(Color, Name)] -> IO Color
-getPlayerChoiceFrom l = do let p = P.choice $ map (uncurry (flip constP)) l
-                           choice <- getLine
-                           case P.parse p choice of
-                             Left _ -> putStrLn "invalid name" >>
-                                       getPlayerChoiceFrom l
-                             Right c -> return c
-
-
-
--- getResourceChoiceFrom :: [Resource] -> IO Resource
--- getResourceChoiceFrom l = do let p :: P.Parser Resource
---                                  p = P.ensure (`elem` l) resourceP
---                              choice <- getLine
---                              case P.parse p choice of
---                                Left _ -> putStrLn "invalid choice" >>
---                                          getResourceChoiceFrom l
---                                Right c -> return c
+getChoiceFrom :: [(Name, Color)] -> IO Color
+getChoiceFrom l = do let p = P.choice $ map (uncurry constP) l
+                     choice <- getLine
+                     case P.parse p choice of
+                         Left _ -> putStrLn "invalid name" >>
+                                   getChoiceFrom l
+                         Right c -> return c

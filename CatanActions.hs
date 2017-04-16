@@ -10,7 +10,7 @@ import qualified Control.Monad.State as S
 import Debug.Trace(trace)
 
 import System.Random.Shuffle(shuffleM)
-import Control.Monad.IO.Class(liftIO)
+import Control.Monad.IO.Class(liftIO, MonadIO)
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
@@ -55,7 +55,7 @@ allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
     game@Game{..} <- S.get
     let rewards = map (rollRewards board roll robberTile) buildings
-        step (c, rs) ps = recieve rs c ps
+        step (c, rs) = recieve rs c
     S.put (game {players = foldr step players rewards})
 
 
@@ -74,7 +74,7 @@ buildRoad loc1 loc2 = do
         newPs = spend [Lumber, Brick] c players
         validP = validPlayer $ getPlayer c newPs
         newRoad = not $ containsRoad loc1 loc2 roads
-        contiguous = (any existing buildings) || (any connects roads)
+        contiguous = any existing buildings || any connects roads
         newRs =  (loc1, loc2, c) : roads
         update = S.put(game { players = newPs, roads = newRs})
     if validP && newRoad && contiguous then update >> return True else
@@ -158,7 +158,7 @@ playCard prog = do
     let c = currentPlayer
         card = Progress prog
         Player{..} = getPlayer c players
-    if notElem card cards then return False else do
+    if card `notElem` cards then return False else do
         let newCards p = p{cards = List.delete card cards}
         S.put(game {players = updPlayer newCards c players})
         return True
@@ -186,14 +186,14 @@ drawCard = do
 unDrawCard :: DevCard -> MyState ()
 unDrawCard card = do
     game <- S.get
-    S.put (game { deck = card : (deck game) })
+    S.put (game { deck = card : deck game })
 
 
 buyCard :: MyState Bool
 buyCard = do
     game@Game{..} <- S.get
     maybeCard <- drawCard
-    if (isNothing maybeCard) then return False else do
+    if isNothing maybeCard then return False else do
         let c = currentPlayer
             card = fromJust maybeCard
             addCard = updPlayer (\p -> p { cards = card : cards p }) c
@@ -230,3 +230,27 @@ gameOver = do
         armyVP = if largestArmy == Just c then 2 else 0
         roadVP = 0 -- TODO: unimplemented
     return $ bVP + cVP + armyVP + roadVP >= 10
+
+handleAction :: PlayerAction -> MyState Bool
+handleAction a = case a of
+        BuildRoad l1 l2           -> ignoreB $ buildRoad l1 l2
+        BuildCity l               -> ignoreB $ buildCity l
+        BuildSettlement l         -> ignoreB $ buildSett l
+        PlayCard c                -> ignoreB $ playCard c
+        BuyCard                   -> ignoreB buyCard
+        TradeWithBank r1 r2 i     -> ignoreI $ genericTrade r1 r2 i
+        TradeWithPlayer rs1 c rs2 -> ignoreB $ playerTrade rs1 c rs2
+        EndTurn                   -> return True
+        EndGame                   -> error "over"
+
+ignoreI :: MonadIO m => m Int -> m Bool
+ignoreI m = do
+  res <- m
+  when (res == 0) $ liftIO $ putStrLn "not successful"
+  return False
+
+ignoreB :: MonadIO m => m Bool -> m Bool
+ignoreB m = do
+  res <- m
+  unless res $ liftIO $ putStrLn "not successful"
+  return False

@@ -33,7 +33,7 @@ setupPlayers = do
 getName :: Color -> [Name] -> IO (Color,Name)
 getName c used = do
     putStr $ show c
-    putStrLn $ " player, What is your name?"
+    putStrLn " player, What is your name?"
     name <- getLine
     if name `notElem` used then return (c, name) else getName c used
 
@@ -52,11 +52,11 @@ rollSeven = do liftIO $ putStr "penalty victims: "
                newRobber <- liftIO promptForRobber
                moveRobber newRobber
 
-stealFromOneOf :: [(Color, Name)] -> MyState()
+stealFromOneOf :: [(Name, Color)] -> MyState()
 stealFromOneOf l = do
     game@Game{..} <- S.get
-    liftIO $ putStr "options to steal from: " >> print (map snd l)
-    c <- liftIO $ getPlayerChoiceFrom l
+    liftIO $ putStr "options to steal from: " >> print (map fst l)
+    c <- liftIO $ getChoiceFrom l
     let resChoices = allResources $ getPlayer c players
     case resChoices of
         [] -> liftIO $ putStrLn "no resources"
@@ -72,7 +72,7 @@ moveRobber t = do
     S.put(game{robberTile = t})
     case options of
         []  -> liftIO $ putStrLn "no adjacent settlements"
-        l   -> stealFromOneOf (zip l $ map (name . flip getPlayer players) l)
+        l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
     where playerAtCorner board b =
            let corner = getCorner board (buildingLoc b) in
            if t `elem` rewardLocs corner

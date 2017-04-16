@@ -17,7 +17,7 @@ import Control.Applicative
 newtype Parser a = P (String -> [(a, String)])
 
 doParse :: Parser a -> String -> [(a, String)]
-doParse (P p) s = p s
+doParse (P p) = p
 
 -- | Return the next character from the input
 get :: Parser Char
@@ -53,7 +53,7 @@ instance Applicative Parser where
 
 instance Alternative Parser where
   -- the parser that always fails
-  empty     = P $ \ _ -> []
+  empty     = P $ const []
   -- | Combine two parsers together in parallel, but only use the
   -- first result. This means that the second parser is used only
   -- if the first parser completely fails.

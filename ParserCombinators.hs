@@ -6,6 +6,7 @@ module ParserCombinators where
 
 import Parser
 import Control.Applicative
+import Data.Foldable(asum)
 import Data.Char
 import System.IO
 
@@ -73,7 +74,7 @@ chainl1 p sep = foldl (\acc (op,v) -> op acc v) <$>
 
 -- | Combine all parsers in the list (sequentially)
 choice :: [Parser a] -> Parser a
-choice = foldr (<|>) empty
+choice = asum
 
 -- | @between open close p@ parses @open@, followed by @p@ and finally
 --   @close@. Only the value of @p@ is pureed.
