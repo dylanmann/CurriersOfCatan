@@ -1,17 +1,48 @@
 {-# LANGUAGE ConstraintKinds, RecordWildCards #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanTypes(getResource, updResource,Color(..),
-                  ProgressCard(..),DevCard(..),devCards,buildingColor,
-                  buildingLoc,Building(..),buildingTileLocs,buildingTiles,
-                  Name, Resources, Players, Player(..),Roads, Game(..),
-                  getPlayer, allPlayers, updPlayer, allResources, produces,
-                  makePlayers, nextPlayer, validPlayer, emptyResources)
+module CatanTypes(ProgressCard(..),
+                  DevCard(..),
+                  devCards,
+
+                  Building(..),
+                  buildingColor,
+                  buildingLoc,
+                  buildingTileLocs,
+                  buildingTiles,
+                  Name,
+
+                  Resources,
+                  getResource,
+                  updResource,
+                  allResources,
+                  emptyResources,
+
+                  Players,
+                  Player(..),
+                  Color(..),
+                  getPlayer,
+                  allPlayers,
+                  updPlayer,
+                  makePlayers,
+                  nextPlayer,
+                  validPlayer,
+
+                  Paths,
+                  --pathsOfColor,
+
+                  Roads,
+                  Game(..),
+                  produces)
                   where
 
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(fromMaybe, fromJust)
+import Data.List.Split
+import Data.List as List
+import Data.Function(on)
+import Data.Ord
 -- import Text.PrettyPrint (Doc)
 -- import qualified Text.PrettyPrint as PP
 import CatanBoard
@@ -73,6 +104,80 @@ makePlayers = Players . foldr add Map.empty
 data Players = Players (Map Color Player)
   deriving (Read, Eq)
 
+type Paths = Map Color [[CornerLocation]]
+
+edges :: [CornerLocation] -> Color -> CornerLocation -> Roads -> [CornerLocation]
+edges excluded c l = foldr step []
+  where step :: (CornerLocation, CornerLocation, Color) -> [CornerLocation] -> [CornerLocation]
+        step (l1, l2, c1) _   | c /= c1 && (l1 == l || l2 == l) = []
+        step (l1, l2, c1) acc | l2 == l && l1 `elem` excluded = acc
+        step (l1, l2, c1) acc | l1 == l && l2 `elem` excluded = acc
+        step (l1, l2, c1) acc | c == c1 && l1 == l = l2 : acc
+        step (l1, l2, c1) acc | c == c1 && l2 == l = l1 : acc
+        step _ acc                                 = acc
+
+
+longestPathFrom :: Roads -> Color -> CornerLocation -> CornerLocation -> [CornerLocation]
+longestPathFrom = aux [] where
+  aux excluded roads c start end
+    | start == end = [start]
+    | notIn = []
+    | otherwise =
+      maximumBy (comparing length) $
+                []:[ start : (aux (start:excluded) roads c e end) |
+                      e <- edges excluded c start roads, not$null e]
+      where notIn = all (\(l1, l2, c1) -> c1 /= c || (l1 /= start && l2 /= start
+                                                      && l1 /= end && l2 /= end)) roads
+
+
+longestPath :: Color -> Roads -> [CornerLocation]
+longestPath c r = maximumBy (comparing length)
+              [longestPathFrom r c l1 l2 | l1 <- cornerIndices, l2 <- cornerIndices]
+
+newLongestPath :: Maybe Color -> Roads -> Maybe Color
+newLongestPath oldWinner roads =
+  let ps = foldr (\c -> Map.insert c (longestPath c roads)) Map.empty colors
+      lengths = Map.map length ps
+      longest = Map.findMax lengths
+      in
+  case oldWinner of
+    _       | snd longest < 5  -> Nothing
+    Nothing | snd longest >= 5 -> Just $ fst longest
+    Just c  | snd longest > Map.findWithDefault 0 c lengths -> Just $ fst longest
+    m -> m
+  where colors = [Blue, Red, White, Orange]
+
+
+
+
+-- pathsOfColor :: Color -> Paths -> [[CornerLocation]]
+-- pathsOfColor c = fromJust . Map.lookup c
+
+-- pathsNotOfColor :: Color -> Paths -> [(Color, [[CornerLocation]])]
+-- pathsNotOfColor c p = filter ((c /=) . fst) (Map.toList p)
+
+-- splitOnLocation :: CornerLocation -> [CornerLocation] ->
+--                       [[CornerLocation]]
+-- splitOnLocation l path = case (split . keepDelimsL . oneOf) [l] path of
+--                               hd:tl -> hd : map (l:) (filter (not.null) tl)
+--                               p     -> p
+
+-- addToLocation l1 l2 (hd:path) | hd == l1 = l2 : hd : path
+
+-- addRoadToPaths :: (CornerLocation, CornerLocation, Color) -> Paths -> Paths
+-- addRoadToPaths (l1, l2, c) paths =
+--   let sameC = pathsOfColor c paths
+--       splitAllOn l = concatMap (splitOnLocation l)
+--       newSameC = List.nub (splitAllOn l1 sameC ++ splitAllOn l2 sameC ++ sameC)
+--       otherC = map (splitAllOn l1 . snd) $
+--                map (splitAllOn l2 . snd) $
+--                pathsNotOfColor c paths
+--   in
+--   undefined
+
+
+
+
 -- Game is going to be updated via the State monad throughout the
 -- execution of the program
 data Game = Game {board         :: Board,
@@ -83,7 +188,8 @@ data Game = Game {board         :: Board,
                   longestRoad   :: Maybe Color,
                   largestArmy   :: Maybe Color,
                   deck          :: [DevCard],
-                  currentPlayer :: Color}
+                  currentPlayer :: Color,
+                  paths         :: Paths}
     deriving (Read)
 
 -- lol these ended up working out well

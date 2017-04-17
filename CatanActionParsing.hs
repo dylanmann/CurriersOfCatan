@@ -1,5 +1,4 @@
-module CatanActionParsing (getNextAction,promptForRobber,
-                           getChoiceFrom) where
+module CatanActionParsing (getNextAction,promptForRobber,getChoiceFrom) where
 
 import Control.Applicative
 import Data.Char(isSpace)

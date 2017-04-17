@@ -43,3 +43,12 @@ REFACTOR CORNERS AND FIX THE MISTAKES I MADE
 Add tests for some stuff once board is setup
 
 Make an Actions Type:  we get user input and then we get back an action which we can handle.
+
+
+
+get all paths that contain either point
+
+split each path into the two sides of the point
+
+if same color then keep original add new point to both sides,
+otherwise discard original

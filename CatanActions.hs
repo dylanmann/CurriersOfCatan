@@ -59,6 +59,13 @@ allocateRewards roll = do
     S.put (game {players = foldr step players rewards})
 
 
+-- updateRoads :: (Color, CornerLocation, CornerLocation) -> MyState Bool
+-- updateRoads (c, new1, new2) = do
+--     game@Game{..} <- S.get
+--     let interrupted = filter (\x -> elem new1 x || elem new2 x) paths
+
+
+
 buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get

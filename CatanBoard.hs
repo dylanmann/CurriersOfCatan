@@ -5,7 +5,7 @@ module CatanBoard(Board(..),Corner,Corners,Tiles,CornerLocation,Tile(..),TileLoc
                   Resource(..),Terrain(..),Token(..),desert,getCorner,
                   Neighbors(..),Harbor(..),rewardTiles,rewardLocs,
                   makeCornerLocation,makeTileLocation, defaultBuildings,
-                  Building(..), Color(..), Roads, defaultRoads)
+                  Building(..), Color(..), Roads, defaultRoads, cornerIndices)
                   where
 
 -- import Math.Geometry.GridMap.Lazy(LGridMap,lazyGridMapIndexed)
