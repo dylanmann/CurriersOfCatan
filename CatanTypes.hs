@@ -140,7 +140,7 @@ newLongestRoad oldWinner roads =
     Nothing | snd longest >= 5 -> Just $ fst longest
     Just c  | snd longest > Map.findWithDefault 0 c lengths -> Just $ fst longest
     m -> m
-  where colors = [Blue, Red, White, Orange]
+  where colors = List.nub (map (\(_,_,c) -> c) roads)
 
 
 -- Game is going to be updated via the State monad throughout the
@@ -182,6 +182,8 @@ produces roll (Paying t token) | roll == token =
   (Just . toEnum . fromEnum) t
 produces _ _ = Nothing
 
+
+-- TODO: refactor so that we can play with 3 colors
 nextPlayer :: Color -> Color
 nextPlayer White = Blue
 nextPlayer c = succ c

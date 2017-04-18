@@ -39,7 +39,6 @@ module CatanBoard(Terrain(..),
                   Resource(..))
                   where
 
-
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(fromJust)
@@ -215,6 +214,6 @@ defaultBuildings = map (uncurry Settlement)
 
 defaultRoads :: Roads
 defaultRoads = map mkRoad
-          [(0,1, White), (2, 3, Blue),   (4, 5, Orange), (6, 7, Blue),
-           (8,9, Red),    (10,11, White), (13,14, Red),   (15, 16, Orange)]
+          [(0, 1, White), (2, 3, Blue), (4, 5, Orange), (6, 7, Blue),
+           (8, 9, Red), (10, 11, White), (13, 14, Red), (15, 16, Orange)]
       where mkRoad (x1, x2, c) = ((x1, 1), (x2, 1), c)

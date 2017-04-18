@@ -214,6 +214,7 @@ buyCard = do
         updateArmy
         return validP
 
+
 rollSevenPenalty :: MyState [Name]
 rollSevenPenalty = do
     game@Game{..} <- S.get
@@ -240,6 +241,7 @@ gameOver = do
         armyVP = if largestArmy == Just c then 2 else 0
         roadVP = if longestRoad == Just c then 2 else 0
     return $ bVP + cVP + armyVP + roadVP >= 10
+
 
 handleAction :: PlayerAction -> MyState Bool
 handleAction a = case a of
