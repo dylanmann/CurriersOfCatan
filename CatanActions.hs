@@ -1,18 +1,27 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
-module CatanActions where
+module CatanActions(PlayerAction(..),
+                    handleAction,
+                    rollSevenPenalty,
+                    gameOver,
 
-import CatanTypes
-import CatanBoard
+                    MyState,
+
+                    allocateRewards,
+                    spend,
+                    recieve
+) where
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
-import Debug.Trace(trace)
 
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO, MonadIO)
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
+
+import CatanTypes
+import CatanBoard
 
 type MyState = S.StateT Game IO
 
@@ -57,12 +66,6 @@ allocateRewards roll = do
     let rewards = map (rollRewards board roll robberTile) buildings
         step (c, rs) = recieve rs c
     S.put (game {players = foldr step players rewards})
-
-
--- updateRoads :: (Color, CornerLocation, CornerLocation) -> MyState Bool
--- updateRoads (c, new1, new2) = do
---     game@Game{..} <- S.get
---     let interrupted = filter (\x -> elem new1 x || elem new2 x) paths
 
 buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do

@@ -1,16 +1,45 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanBoard(Board(..),Corner,Corners,Tiles,CornerLocation,Tile(..),TileLocation,
-                  getTile,setupBoard,adjacentCorners,tokenOrder,Reward,
-                  Resource(..),Terrain(..),Token(..),desert,getCorner,
-                  Neighbors(..),Harbor(..),rewardTiles,rewardLocs,
-                  makeCornerLocation,makeTileLocation, defaultBuildings,
-                  Building(..), Color(..), Roads, defaultRoads, cornerIndices)
+module CatanBoard(Terrain(..),
+
+                  Token(..),
+                  tokenOrder,
+
+                  Tile(..),
+                  Tiles,
+                  TileLocation,
+                  getTile,
+                  desert,
+                  makeTileLocation,
+
+                  Reward,
+                  rewardTiles,
+                  rewardLocs,
+                  Harbor(..),
+                  Neighbors(..),
+
+                  Corner,
+                  Corners,
+                  CornerLocation,
+                  adjacentCorners,
+                  getCorner,
+                  makeCornerLocation,
+                  cornerIndices,
+
+                  Board(..),
+                  setupBoard,
+
+                  -- This stuff is only in ehre to avoid circular dependencies
+                  -- TODO: put this all back in catanTypes
+                  defaultBuildings,
+                  Building(..),
+                  Color(..),
+                  Roads,
+                  defaultRoads,
+                  Resource(..))
                   where
 
--- import Math.Geometry.GridMap.Lazy(LGridMap,lazyGridMapIndexed)
--- import Math.Geometry.Grid.Hexagonal(HexHexGrid,hexHexGrid)
--- import qualified Math.Geometry.GridMap as GM
+
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(fromJust)
@@ -63,7 +92,7 @@ data Harbor = GenericHarbor
 
 type Reward = (Neighbors, Maybe Harbor)
 
--- need to store corner location because it keeps corners distinct
+
 type Corner = Reward
 type CornerLocation = (Int, Int)
 

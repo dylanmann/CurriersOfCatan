@@ -3,7 +3,7 @@
 
 module CatanGamePlay where
 
-import Data.Maybe(fromJust, isNothing, mapMaybe)
+import Data.Maybe(mapMaybe)
 import Control.Monad (liftM2, unless)
 import qualified Control.Monad.Random as Random
 import Control.Monad.Random(MonadRandom)
@@ -64,7 +64,6 @@ stealFromOneOf l = do
                 liftIO (putStr "stole 1 " >> print hd)
 
 
--- TODO: pick a player to steal from, pick resource to take
 moveRobber :: TileLocation -> MyState ()
 moveRobber t = do
     game@Game{..} <- S.get
@@ -84,12 +83,12 @@ advancePlayer :: MyState ()
 advancePlayer = do
     roll <- rollDice
     case roll of
-        7 ->  rollSeven
         2 ->  allocateRewards Two
         3 ->  allocateRewards Three
         4 ->  allocateRewards Four
         5 ->  allocateRewards Five
         6 ->  allocateRewards Six
+        7 ->  rollSeven
         8 ->  allocateRewards Eight
         9 ->  allocateRewards Nine
         10 -> allocateRewards Ten

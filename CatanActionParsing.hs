@@ -1,10 +1,12 @@
-module CatanActionParsing (getNextAction,promptForRobber,getChoiceFrom) where
+{-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
+
+module CatanActionParsing (getNextAction,
+                           promptForRobber,
+                           getChoiceFrom) where
 
 import Control.Applicative
 import Data.Char(isSpace)
 import Data.Maybe(isJust, fromJust)
-import Control.Monad(when, unless)
-import Control.Monad.IO.Class(liftIO, MonadIO)
 import qualified Parser as P
 import qualified ParserCombinators as P
 import CatanActions

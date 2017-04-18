@@ -28,9 +28,6 @@ module CatanTypes(ProgressCard(..),
                   nextPlayer,
                   validPlayer,
 
-                  Paths,
-                  --pathsOfColor,
-
                   Roads,
                   newLongestRoad,
                   Game(..),
@@ -40,12 +37,8 @@ module CatanTypes(ProgressCard(..),
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(fromMaybe, fromJust)
-import Data.List.Split
 import Data.List as List
-import Data.Function(on)
 import Data.Ord
--- import Text.PrettyPrint (Doc)
--- import qualified Text.PrettyPrint as PP
 import CatanBoard
 
 data ProgressCard = RoadBuilding
@@ -104,8 +97,6 @@ makePlayers = Players . foldr add Map.empty
 
 data Players = Players (Map Color Player)
   deriving (Read, Eq)
-
-type Paths = Map Color [[CornerLocation]]
 
 edges :: Color -> CornerLocation -> Roads -> [CornerLocation]
 edges c l = foldr step []
