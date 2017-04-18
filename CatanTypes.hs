@@ -32,6 +32,7 @@ module CatanTypes(ProgressCard(..),
                   --pathsOfColor,
 
                   Roads,
+                  newLongestRoad,
                   Game(..),
                   produces)
                   where
@@ -106,36 +107,39 @@ data Players = Players (Map Color Player)
 
 type Paths = Map Color [[CornerLocation]]
 
-edges :: [CornerLocation] -> Color -> CornerLocation -> Roads -> [CornerLocation]
-edges excluded c l = foldr step []
+edges :: Color -> CornerLocation -> Roads -> [CornerLocation]
+edges c l = foldr step []
   where step :: (CornerLocation, CornerLocation, Color) -> [CornerLocation] -> [CornerLocation]
-        step (l1, l2, c1) _   | c /= c1 && (l1 == l || l2 == l) = []
-        step (l1, l2, c1) acc | l2 == l && l1 `elem` excluded = acc
-        step (l1, l2, c1) acc | l1 == l && l2 `elem` excluded = acc
         step (l1, l2, c1) acc | c == c1 && l1 == l = l2 : acc
         step (l1, l2, c1) acc | c == c1 && l2 == l = l1 : acc
         step _ acc                                 = acc
 
+uninterruptedLength :: Color -> Roads -> [CornerLocation] -> Int
+uninterruptedLength _ _ [] = 0
+uninterruptedLength c r (x:xs) | stop x = 1
+                               | otherwise = 1 + uninterruptedLength c r xs
+  where stop hd = any (\(l1, l2, c1) -> c1 /= c && (l1 == hd || l2 == hd)) r
+
 
 longestPathFrom :: Roads -> Color -> CornerLocation -> CornerLocation -> [CornerLocation]
 longestPathFrom = aux [] where
-  aux excluded roads c start end
+  aux seen roads c start end
     | start == end = [start]
     | notIn = []
     | otherwise =
-      maximumBy (comparing length) $
-                []:[ start : (aux (start:excluded) roads c e end) |
-                      e <- edges excluded c start roads, not$null e]
+      maximumBy (comparing $ uninterruptedLength c roads) $
+                []:[start : (aux (start:seen) roads c e end) |
+                      e <- edges c start roads, e `notElem` seen]
       where notIn = all (\(l1, l2, c1) -> c1 /= c || (l1 /= start && l2 /= start
                                                       && l1 /= end && l2 /= end)) roads
 
 
 longestPath :: Color -> Roads -> [CornerLocation]
-longestPath c r = maximumBy (comparing length)
+longestPath c r = maximumBy (comparing $ uninterruptedLength c r)
               [longestPathFrom r c l1 l2 | l1 <- cornerIndices, l2 <- cornerIndices]
 
-newLongestPath :: Maybe Color -> Roads -> Maybe Color
-newLongestPath oldWinner roads =
+newLongestRoad :: Maybe Color -> Roads -> Maybe Color
+newLongestRoad oldWinner roads =
   let ps = foldr (\c -> Map.insert c (longestPath c roads)) Map.empty colors
       lengths = Map.map length ps
       longest = Map.findMax lengths
@@ -148,36 +152,6 @@ newLongestPath oldWinner roads =
   where colors = [Blue, Red, White, Orange]
 
 
-
-
--- pathsOfColor :: Color -> Paths -> [[CornerLocation]]
--- pathsOfColor c = fromJust . Map.lookup c
-
--- pathsNotOfColor :: Color -> Paths -> [(Color, [[CornerLocation]])]
--- pathsNotOfColor c p = filter ((c /=) . fst) (Map.toList p)
-
--- splitOnLocation :: CornerLocation -> [CornerLocation] ->
---                       [[CornerLocation]]
--- splitOnLocation l path = case (split . keepDelimsL . oneOf) [l] path of
---                               hd:tl -> hd : map (l:) (filter (not.null) tl)
---                               p     -> p
-
--- addToLocation l1 l2 (hd:path) | hd == l1 = l2 : hd : path
-
--- addRoadToPaths :: (CornerLocation, CornerLocation, Color) -> Paths -> Paths
--- addRoadToPaths (l1, l2, c) paths =
---   let sameC = pathsOfColor c paths
---       splitAllOn l = concatMap (splitOnLocation l)
---       newSameC = List.nub (splitAllOn l1 sameC ++ splitAllOn l2 sameC ++ sameC)
---       otherC = map (splitAllOn l1 . snd) $
---                map (splitAllOn l2 . snd) $
---                pathsNotOfColor c paths
---   in
---   undefined
-
-
-
-
 -- Game is going to be updated via the State monad throughout the
 -- execution of the program
 data Game = Game {board         :: Board,
@@ -188,8 +162,7 @@ data Game = Game {board         :: Board,
                   longestRoad   :: Maybe Color,
                   largestArmy   :: Maybe Color,
                   deck          :: [DevCard],
-                  currentPlayer :: Color,
-                  paths         :: Paths}
+                  currentPlayer :: Color}
     deriving (Read)
 
 -- lol these ended up working out well

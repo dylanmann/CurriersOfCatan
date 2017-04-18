@@ -64,8 +64,6 @@ allocateRewards roll = do
 --     game@Game{..} <- S.get
 --     let interrupted = filter (\x -> elem new1 x || elem new2 x) paths
 
-
-
 buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get
@@ -83,7 +81,9 @@ buildRoad loc1 loc2 = do
         newRoad = not $ containsRoad loc1 loc2 roads
         contiguous = any existing buildings || any connects roads
         newRs =  (loc1, loc2, c) : roads
-        update = S.put(game { players = newPs, roads = newRs})
+        update = S.put(game { players = newPs,
+                              roads = newRs,
+                              longestRoad = newLongestRoad longestRoad newRs})
     if validP && newRoad && contiguous then update >> return True else
         return False
 
@@ -235,7 +235,7 @@ gameOver = do
         bVP = sum $ map buildingVP $ filter ((== c) . buildingColor) buildings
         cVP = sum $ map cardVP $ cards p
         armyVP = if largestArmy == Just c then 2 else 0
-        roadVP = 0 -- TODO: unimplemented
+        roadVP = if longestRoad == Just c then 2 else 0
     return $ bVP + cVP + armyVP + roadVP >= 10
 
 handleAction :: PlayerAction -> MyState Bool
