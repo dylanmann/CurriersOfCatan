@@ -1,7 +1,7 @@
 {-# LANGUAGE ConstraintKinds, RecordWildCards #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanTypes(ProgressCard(..),
+module Types(ProgressCard(..),
                   DevCard(..),
                   devCards,
 
@@ -42,7 +42,7 @@ module CatanTypes(ProgressCard(..),
 
                   Resource(..),
 
-                  module CatanBoard)
+                  module Board)
                   where
 
 import qualified Data.Map as Map
@@ -50,7 +50,7 @@ import Data.Map(Map)
 import Data.Maybe(fromMaybe, fromJust)
 import Data.List as List
 import Data.Ord
-import CatanBoard
+import Board
 import Control.Concurrent.MVar
 
 data Color = Blue | Red | Orange | White

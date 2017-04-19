@@ -1,6 +1,6 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
-module CatanActions(handleAction,
+module Actions(handleAction,
                     rollSeven,
                     gameOver,
 
@@ -22,7 +22,7 @@ import Control.Monad.IO.Class(liftIO, MonadIO)
 import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
-import CatanTypes
+import Types
 
 type MyState = S.StateT Game IO
 

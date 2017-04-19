@@ -1,7 +1,7 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards, NamedFieldPuns #-}
 
-module CatanGamePlay where
+module GamePlay where
 
 import Control.Monad (liftM2, unless)
 import Control.Monad.Random.Class(getRandomR)
@@ -11,9 +11,9 @@ import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
 import Control.Concurrent.MVar
 import Control.Concurrent(forkIO)
-import CatanTypes
-import CatanActions
-import CatanActionParsing
+import Types
+import Actions
+import ActionParsing
 
 main :: IO Name
 main = playGame

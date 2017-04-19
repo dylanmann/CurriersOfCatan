@@ -1,6 +1,6 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanBoard(Terrain(..),
+module Board(Terrain(..),
 
                   Token(..),
                   tokenOrder,

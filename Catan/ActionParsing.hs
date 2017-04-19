@@ -1,6 +1,6 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
-module CatanActionParsing (ioThread) where
+module ActionParsing (ioThread) where
 
 import Control.Applicative
 import Data.Char(isSpace)
@@ -8,7 +8,7 @@ import Data.Maybe(isJust, fromJust)
 import Control.Concurrent.MVar
 
 import qualified ParserCombinators as P
-import CatanTypes
+import Types
 
 
 constP :: String -> a -> P.Parser a
