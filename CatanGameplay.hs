@@ -83,18 +83,18 @@ advancePlayer :: MyState ()
 advancePlayer = do
     roll <- rollDice
     case roll of
-        2 ->  allocateRewards Two
-        3 ->  allocateRewards Three
-        4 ->  allocateRewards Four
-        5 ->  allocateRewards Five
-        6 ->  allocateRewards Six
-        7 ->  rollSeven
-        8 ->  allocateRewards Eight
-        9 ->  allocateRewards Nine
+        2  -> allocateRewards Two
+        3  -> allocateRewards Three
+        4  -> allocateRewards Four
+        5  -> allocateRewards Five
+        6  -> allocateRewards Six
+        7  -> rollSeven
+        8  -> allocateRewards Eight
+        9  -> allocateRewards Nine
         10 -> allocateRewards Ten
         11 -> allocateRewards Eleven
         12 -> allocateRewards Twelve
-        _ -> error "impossible"
+        _  -> error "impossible"
     game@Game{..} <- S.get
     let next = nextPlayer currentPlayer
     S.put(game{currentPlayer = next})
@@ -104,11 +104,10 @@ shuffle = shuffleM
 
 takeTurn :: MyState ()
 takeTurn = do
-    Game{currentPlayer, players} <- S.get
+    g@Game{..} <- S.get
+    liftIO $ print g
     action <- liftIO $ getNextAction (name (getPlayer currentPlayer players))
     turnOver <- handleAction action
-    g <- S.get
-    liftIO $ print g
     unless turnOver takeTurn
 
 playGame :: IO Name
