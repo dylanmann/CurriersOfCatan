@@ -84,7 +84,7 @@ takeTurn = do
 playGame :: IO Name
 playGame = do
     game <- liftIO initialize
-    let ioThreadColor c = forkIO . ioThread . mvars . getPlayer c $ players game
+    let ioThreadColor c = forkIO . ioThread c . mvars . getPlayer c $ players game
     _ <- ioThreadColor Red
     _ <- ioThreadColor White
     _ <- ioThreadColor Blue

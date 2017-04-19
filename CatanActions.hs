@@ -191,6 +191,14 @@ playProgress RoadBuilding = do
                      longestRoad = newLongestRoad longestRoad newRoads})
     else playProgress RoadBuilding
 
+playProgress YearOfPlenty = do
+    CatanMVars{..} <- getCatanMVars
+    game@Game{..} <- S.get
+    (r1, r2) <- liftIO $ putMVar requestVar YearOfPlentyChoice >>
+                        takeMVar yopVar
+    S.put(game{players = recieve [r1,r2] currentPlayer players})
+
+
 validRoad :: Road -> MyState Bool
 validRoad r@(_,_,c) = do
     Game{..} <- S.get

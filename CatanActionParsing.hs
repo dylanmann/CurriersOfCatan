@@ -62,6 +62,10 @@ colorP = P.choice [constP "Red" Red,
                    constP "White" White,
                    constP "Orange" Orange]
 
+rbP :: Color -> P.Parser (Road, Road)
+rbP c = (,) <$> (mkRoad <$> cornerP <*> cornerP) <*> (mkRoad <$> cornerP <*> cornerP)
+  where mkRoad l1 l2 = (l1, l2, c)
+
 bankP :: P.Parser PlayerAction
 bankP = P.string "bank" *> (TradeWithBank <$> wsP resourceP <*> wsP resourceP <*> wsP P.int)
 
@@ -100,16 +104,26 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
-ioThread :: CatanMVars -> IO ()
-ioThread CatanMVars{..} = --do
+ioThread :: Color -> CatanMVars -> IO ()
+ioThread c CatanMVars{..} = --do
     -- print "What is your name?: "
     -- name <- getLine
     -- putMVar nameVar name
     go where go = do r <- takeMVar requestVar
                      case r of
-                        NextMove -> takeMVar nameVar >>= getNextAction >>= putMVar actionVar
-                        MoveRobber -> promptForRobber >>= putMVar robberVar
-                        StealFrom ps -> getChoiceFrom ps >>= putMVar colorVar
+                        NextMove -> takeMVar nameVar >>=
+                                    getNextAction >>=
+                                    putMVar actionVar
+                        MoveRobber -> promptForRobber >>=
+                                      putMVar robberVar
+                        StealFrom ps -> getChoiceFrom ps >>=
+                                        putMVar colorVar
+                        RoadBuildingChoice -> promptForRoadBuilder c >>=
+                                              putMVar roadVar
+                        YearOfPlentyChoice -> promptForYOP >>=
+                                              putMVar yopVar
+                        MonopolyChoice -> promptForMonopoly >>=
+                                          putMVar monopolyVar
                      go
 
 promptForRobber :: IO TileLocation
@@ -119,6 +133,30 @@ promptForRobber = do
     case P.parse tileP action of
         Left _ -> putStrLn "invalid location" >> promptForRobber
         Right tile -> return tile
+
+promptForMonopoly :: IO Resource
+promptForMonopoly = do
+    putStr "What resource do you want to monopolize?"
+    action <- getLine
+    case P.parse resourceP action of
+        Left _ -> putStrLn "invalid resource" >> promptForMonopoly
+        Right r -> return r
+
+promptForYOP :: IO (Resource, Resource)
+promptForYOP = do
+    putStr "Which two resources do you want?"
+    action <- getLine
+    case P.parse resourcesP action of
+        Right [r1, r2] -> return (r1, r2)
+        _ -> putStrLn "must be two resources" >> promptForYOP
+
+promptForRoadBuilder :: Color -> IO (Road, Road)
+promptForRoadBuilder c = do
+    putStr "where do you want to build two roads?"
+    action <- getLine
+    case P.parse (rbP c) action of
+        Left _ -> putStrLn "invalid roads" >> promptForRoadBuilder c
+        Right rs -> return rs
 
 getChoiceFrom :: [(Name, Color)] -> IO Color
 getChoiceFrom l = do putStr "options to steal from: "
