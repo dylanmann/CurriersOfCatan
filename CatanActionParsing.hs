@@ -1,12 +1,14 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module CatanActionParsing (getNextAction,
+module CatanActionParsing (ioThread,
                            promptForRobber,
                            getChoiceFrom) where
 
 import Control.Applicative
 import Data.Char(isSpace)
 import Data.Maybe(isJust, fromJust)
+import Control.Concurrent.MVar
+
 import qualified Parser as P
 import qualified ParserCombinators as P
 import CatanActions
@@ -99,6 +101,13 @@ getNextAction n = do
     case P.parse actionP action of
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
+
+ioThread :: MVar Name -> MVar PlayerAction -> IO ()
+ioThread nameVar actionVar = do
+    n <- takeMVar nameVar
+    a <- getNextAction n
+    putMVar actionVar a
+    ioThread nameVar actionVar
 
 promptForRobber :: IO TileLocation
 promptForRobber = do

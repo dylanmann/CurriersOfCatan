@@ -10,10 +10,13 @@ import Control.Monad.Random(MonadRandom)
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
+import Control.Concurrent.MVar
+import Control.Concurrent(forkIO)
 import CatanBoard
 import CatanTypes
 import CatanActions
 import CatanActionParsing
+
 
 main :: IO Name
 main = playGame
@@ -102,26 +105,30 @@ advancePlayer = do
 shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM
 
-takeTurn :: MyState ()
-takeTurn = do
+takeTurn :: MVar Name -> MVar PlayerAction -> MyState ()
+takeTurn nameVar actionVar = do
     g@Game{..} <- S.get
     liftIO $ print g
-    action <- liftIO $ getNextAction (name (getPlayer currentPlayer players))
+    liftIO $ putMVar nameVar (name (getPlayer currentPlayer players))
+    action <- liftIO $ takeMVar actionVar
     turnOver <- handleAction action
-    unless turnOver takeTurn
+    unless turnOver $ takeTurn nameVar actionVar
 
 playGame :: IO Name
 playGame = do
+    nameVar <- newEmptyMVar
+    actionVar <- newEmptyMVar
+    threadid <- forkIO $ ioThread nameVar actionVar
     game <- liftIO initialize
-    S.evalStateT go game where
-    go = do
-        advancePlayer
-        takeTurn
-        final <- gameOver
-        if final then do
-            Game{..} <- S.get
-            return $ name (getPlayer currentPlayer players)
-        else go
+    let go = do
+            advancePlayer
+            takeTurn nameVar actionVar
+            final <- gameOver
+            if final then do
+                Game{..} <- S.get
+                return $ name (getPlayer currentPlayer players)
+            else go
+    S.evalStateT go game
 
 rollDice :: MyState Int
 rollDice = do
