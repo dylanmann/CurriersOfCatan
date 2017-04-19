@@ -7,7 +7,6 @@ import Data.Char(isSpace)
 import Data.Maybe(isJust, fromJust)
 import Control.Concurrent.MVar
 
-import qualified Parser as P
 import qualified ParserCombinators as P
 import CatanTypes
 
@@ -43,9 +42,12 @@ progressP :: P.Parser ProgressCard
 progressP = P.choice [constP "Monopoly" Monopoly,
                       constP "YearOfPlenty" YearOfPlenty,
                       constP "RoadBuilding" RoadBuilding]
+devP :: P.Parser DevCard
+devP = P.choice [P.string "Progress" *> (Progress <$> progressP),
+                 constP "Knight" Knight]
 
 playCardP :: P.Parser PlayerAction
-playCardP =  P.string "progress" *> (PlayCard <$> progressP)
+playCardP =  P.string "progress" *> (PlayCard <$> devP)
 
 resourceP :: P.Parser Resource
 resourceP = P.choice [constP "Wool" Wool,
@@ -98,8 +100,8 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
-ioThread :: CatanVars -> IO ()
-ioThread CatanVars{..} = --do
+ioThread :: CatanMVars -> IO ()
+ioThread CatanMVars{..} = --do
     -- print "What is your name?: "
     -- name <- getLine
     -- putMVar nameVar name
@@ -119,7 +121,9 @@ promptForRobber = do
         Right tile -> return tile
 
 getChoiceFrom :: [(Name, Color)] -> IO Color
-getChoiceFrom l = do let p = P.choice $ map (uncurry constP) l
+getChoiceFrom l = do putStr "options to steal from: "
+                     print (unwords (map fst l))
+                     let p = P.choice $ map (uncurry constP) l
                      choice <- getLine
                      case P.parse p choice of
                          Left _ -> putStrLn "invalid name" >>

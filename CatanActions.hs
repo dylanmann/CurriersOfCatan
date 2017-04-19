@@ -1,19 +1,22 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 module CatanActions(handleAction,
-                    rollSevenPenalty,
+                    rollSeven,
                     gameOver,
 
                     MyState,
 
                     allocateRewards,
                     spend,
-                    recieve
+                    recieve,
+
+                    getCatanMVars
 ) where
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
 
+import Control.Concurrent.MVar
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO, MonadIO)
 import Control.Monad(when, unless)
@@ -58,8 +61,6 @@ buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get
     let c = currentPlayer
-        existing (Settlement c1 l) = l `elem` [loc1,loc2] && c == c1
-        existing (City       c1 l) = l `elem` [loc1,loc2] && c == c1
         connects (l1,l2,c1) | c == c1 =
           not . null $ [loc1, loc2] `List.intersect` [l1, l2]
         connects _ = False
@@ -69,7 +70,7 @@ buildRoad loc1 loc2 = do
         newPs = spend [Lumber, Brick] c players
         validP = validPlayer $ getPlayer c newPs
         newRoad = not $ containsRoad loc1 loc2 roads
-        contiguous = any existing buildings || any connects roads
+        contiguous = any connects roads
         newRs =  (loc1, loc2, c) : roads
         update = S.put(game { players = newPs,
                               roads = newRs,
@@ -149,28 +150,75 @@ genericTrade r1 r2 amount = do
     else trade 4
 
 -- TODO: actually make the cards do something
-playCard :: ProgressCard -> MyState Bool
-playCard prog = do
+playCard :: DevCard -> MyState Bool
+playCard VictoryPoint = return False
+playCard card = do
     game@Game{..} <- S.get
     let c = currentPlayer
-        card = Progress prog
         Player{..} = getPlayer c players
     if card `notElem` cards then return False else do
         let newCards p = p{cards = List.delete card cards}
         S.put(game {players = updPlayer newCards c players})
+        case card of
+            Knight -> updateArmy >> moveRobber
+            Progress p -> playProgress p
+            VictoryPoint -> error "matched topLevel"
         return True
+
+
+playProgress :: ProgressCard -> MyState ()
+playProgress Monopoly = do
+    CatanMVars{..} <- getCatanMVars
+    r <- liftIO $ putMVar requestVar MonopolyChoice >>
+                  takeMVar monopolyVar
+    game@Game{..} <- S.get
+    let newPs = foldr (step r currentPlayer) players (allPlayers players)
+    S.put $ game {players = newPs}
+    where
+      allR r p = filter (== r) (allResources p)
+      step r c (c2,p) = recieve (allR r p) c . spend (allR r p) c2
+
+playProgress RoadBuilding = do
+    CatanMVars{..} <- getCatanMVars
+    game@Game{..} <- S.get
+    (r1, r2) <- liftIO $ putMVar requestVar RoadBuildingChoice >>
+                        takeMVar roadVar
+    let newRoads = r1:r2:roads
+    v1 <- validRoad r1
+    v2 <- validRoad r2
+    if v1 && v2 then
+        S.put(game { roads = newRoads,
+                     longestRoad = newLongestRoad longestRoad newRoads})
+    else playProgress RoadBuilding
+
+validRoad :: Road -> MyState Bool
+validRoad r@(_,_,c) = do
+    Game{..} <- S.get
+    let connects (l1,l2,c1) (r1, r2, c2) = c1 == c2 &&
+          (not . null $ [l1, l2] `List.intersect` [r1, r2])
+        containsRoad = any sameRoad roads where
+            sameRoad r2@(old1, old2, c1) = (r == r2) || (r == (old2, old1, c1))
+        unique = not containsRoad
+        contiguous = any (connects r) roads
+    return $ unique && contiguous && c == currentPlayer
+
+
 
 updateArmy :: MyState ()
 updateArmy = do
     game@Game{..} <- S.get
     let c = currentPlayer
         currentP = getPlayer c players
-        army = length . filter (== Knight) . cards
-        update = S.put (game { largestArmy = Just c })
+        addToArmy p = p{knights = knights p + 1}
+        updateNoLA = S.put (game { players = updPlayer addToArmy c players })
+        updateLA   = S.put (game { largestArmy = Just c,
+                                     players = updPlayer addToArmy c players})
     case largestArmy of
-        Just leader | army currentP > army (getPlayer leader players) -> update
-        Nothing     | army currentP >= 5                              -> update
-        _ -> return ()
+        Just curr | knights currentP > knights (getPlayer curr players) ->
+                    updateLA
+        Nothing   | knights currentP >= 3                               ->
+                    updateLA
+        _ -> updateNoLA
 
 drawCard :: MyState (Maybe DevCard)
 drawCard = do
@@ -198,7 +246,6 @@ buyCard = do
             validP = validPlayer $ getPlayer c newPs
             update = S.put(game { players = newPs })
         if validP then update else unDrawCard card
-        updateArmy
         return validP
 
 
@@ -215,8 +262,6 @@ rollSevenPenalty = do
             ps <- mps
             return $ spend (take (length l `quot` 2) l) c ps
 
-
-
 -- gameOver is current player has 10 VP (only on their turn)
 gameOver :: MyState Bool
 gameOver = do
@@ -229,6 +274,49 @@ gameOver = do
         roadVP = if longestRoad == Just c then 2 else 0
     return $ bVP + cVP + armyVP + roadVP >= 10
 
+getCatanMVars :: MyState CatanMVars
+getCatanMVars = do
+    Game{..} <- S.get
+    return $ mvars $ getPlayer Orange players
+
+rollSeven :: MyState ()
+rollSeven = do CatanMVars{..} <- getCatanMVars
+               victims <- rollSevenPenalty
+               liftIO $ do
+                    putStr "penalty victims: "
+                    print victims
+               moveRobber
+
+
+stealFromOneOf :: [(Name, Color)] -> MyState()
+stealFromOneOf l = do
+    game@Game{..} <- S.get
+    CatanMVars{..} <- getCatanMVars
+    c <- liftIO $ putMVar requestVar (StealFrom l) >>
+                  takeMVar colorVar
+    let resChoices = allResources $ getPlayer c players
+    case resChoices of
+        [] -> liftIO $ putStrLn "no resources"
+        hd:_ -> S.put (game {players = recieve [hd] currentPlayer (spend [hd] c players)}) >>
+                liftIO (putStr "stole 1 " >> print hd)
+
+
+moveRobber :: MyState ()
+moveRobber = do
+    game@Game{..} <- S.get
+    CatanMVars{..} <- getCatanMVars
+    t <- liftIO $ do putMVar requestVar MoveRobber
+                     takeMVar robberVar
+    let options = mapMaybe (playerAtCorner board t) buildings
+    S.put(game{robberTile = t})
+    case options of
+        []  -> liftIO $ putStrLn "no adjacent settlements"
+        l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
+    where playerAtCorner board t b =
+           let corner = getCorner board (buildingLoc b) in
+           if t `elem` rewardLocs corner
+            then Just $ buildingColor b
+            else Nothing
 
 handleAction :: PlayerAction -> MyState Bool
 handleAction a = case a of

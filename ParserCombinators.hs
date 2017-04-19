@@ -2,7 +2,8 @@
 
 -- CIS 552, University of Pennsylvania
 
-module ParserCombinators where
+module ParserCombinators(module Parser,
+                         module ParserCombinators) where
 
 import Parser
 import Control.Applicative

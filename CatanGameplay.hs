@@ -3,9 +3,8 @@
 
 module CatanGamePlay where
 
-import Data.Maybe(mapMaybe)
 import Control.Monad (liftM2, unless)
-import qualified Control.Monad.Random.Class as Random
+import Control.Monad.Random.Class(getRandomR)
 import Control.Monad.Random(MonadRandom)
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO)
@@ -46,48 +45,6 @@ initialize = do
     return $
      Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White
 
-getCatanMVars :: MyState CatanVars
-getCatanMVars = do
-    Game{..} <- S.get
-    return $ mvars $ getPlayer Orange players
-
-rollSeven :: MyState ()
-rollSeven = do CatanVars{..} <- getCatanMVars
-               victims <- rollSevenPenalty
-               newRobber <- liftIO $ do
-                    putStr "penalty victims: "
-                    print victims
-                    putMVar requestVar MoveRobber
-                    takeMVar robberVar
-               moveRobber newRobber
-
-stealFromOneOf :: [(Name, Color)] -> MyState()
-stealFromOneOf l = do
-    game@Game{..} <- S.get
-    CatanVars{..} <- getCatanMVars
-    liftIO $ putStr "options to steal from: " >> print (unwords (map fst l))
-    c <- liftIO $ putMVar requestVar (StealFrom l) >>
-                  takeMVar colorVar
-    let resChoices = allResources $ getPlayer c players
-    case resChoices of
-        [] -> liftIO $ putStrLn "no resources"
-        hd:_ -> S.put (game {players = recieve [hd] currentPlayer (spend [hd] c players)}) >>
-                liftIO (putStr "stole 1 " >> print hd)
-
-moveRobber :: TileLocation -> MyState ()
-moveRobber t = do
-    game@Game{..} <- S.get
-    let options = mapMaybe (playerAtCorner board) buildings
-    S.put(game{robberTile = t})
-    case options of
-        []  -> liftIO $ putStrLn "no adjacent settlements"
-        l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
-    where playerAtCorner board b =
-           let corner = getCorner board (buildingLoc b) in
-           if t `elem` rewardLocs corner
-            then Just $ buildingColor b
-            else Nothing
-
 
 advancePlayer :: MyState ()
 advancePlayer = do
@@ -115,7 +72,7 @@ shuffle = shuffleM
 takeTurn :: MyState ()
 takeTurn = do
     g@Game{..} <- S.get
-    CatanVars{..} <- getCatanMVars
+    CatanMVars{..} <- getCatanMVars
     action <- liftIO $ do
                 print g
                 putMVar requestVar NextMove
@@ -144,7 +101,7 @@ playGame = do
 
 rollDice :: MyState Int
 rollDice = do
-    let die = Random.getRandomR (1,6)
+    let die = getRandomR (1,6)
     roll <- liftM2 (+) die die
     liftIO $ putStr "roll: " >> print roll
     return roll

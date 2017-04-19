@@ -29,13 +29,14 @@ module CatanTypes(ProgressCard(..),
                   nextPlayer,
                   validPlayer,
 
+                  Road,
                   Roads,
                   defaultRoads,
                   newLongestRoad,
                   Game(..),
                   produces,
 
-                  CatanVars(..),
+                  CatanMVars(..),
                   Request(..),
                   PlayerAction(..),
 
@@ -55,7 +56,9 @@ import Control.Concurrent.MVar
 data Color = Blue | Red | Orange | White
     deriving (Enum, Read, Show, Eq, Ord)
 
-type Roads = [(CornerLocation, CornerLocation, Color)]
+type Road = (CornerLocation, CornerLocation, Color)
+
+type Roads = [Road]
 
 data Building = Settlement Color CornerLocation
               | City       Color CornerLocation
@@ -105,13 +108,14 @@ emptyResources = Resources $ foldr (\x -> Map.insert (toEnum x) 0) Map.empty [0.
 -- Players can change with the state
 data Player = Player {name::Name,
                       resources::Resources,
-                      cards::[DevCard],
-                      mvars::CatanVars}
+                      cards    ::[DevCard],
+                      mvars    ::CatanMVars,
+                      knights  :: Int}
     deriving (Read)
 
 newPlayer :: Name -> IO Player
 newPlayer n = do m <- makeMVars
-                 return $ Player n emptyResources [] m
+                 return $ Player n emptyResources [] m 0
 
 makePlayers :: [(Color,Name)] -> IO Players
 makePlayers l = fmap Players (foldr add (return Map.empty) l)
@@ -124,7 +128,7 @@ data Players = Players (Map Color Player)
 
 edges :: Color -> CornerLocation -> Roads -> [CornerLocation]
 edges c l = foldr step []
-  where step :: (CornerLocation, CornerLocation, Color) -> [CornerLocation] -> [CornerLocation]
+  where step :: Road -> [CornerLocation] -> [CornerLocation]
         step (l1, l2, c1) acc | c == c1 && l1 == l = l2 : acc
         step (l1, l2, c1) acc | c == c1 && l2 == l = l1 : acc
         step _ acc                                 = acc
@@ -246,35 +250,44 @@ instance Show Player where
                     "         cards = " ++ show cards,
                     "}"]
 
-data CatanVars = CatanVars{ nameVar    :: MVar Name,
-                            actionVar  :: MVar PlayerAction,
-                            requestVar :: MVar Request,
-                            robberVar  :: MVar TileLocation,
-                            colorVar   :: MVar Color}
+data CatanMVars = CatanMVars{ nameVar    :: MVar Name,
+                            actionVar   :: MVar PlayerAction,
+                            requestVar  :: MVar Request,
+                            robberVar   :: MVar TileLocation,
+                            colorVar    :: MVar Color,
+                            yopVar      :: MVar (Resource, Resource),
+                            monopolyVar :: MVar Resource,
+                            roadVar     :: MVar (Road, Road)}
 
-instance Show CatanVars where
-  show _ = "CatanVars"
+instance Show CatanMVars where
+  show _ = "CatanMVars"
 
-instance Read CatanVars where
+instance Read CatanMVars where
   readsPrec _ = undefined
 
-makeMVars :: IO CatanVars
+makeMVars :: IO CatanMVars
 makeMVars = do v1 <- newEmptyMVar
                v2 <- newEmptyMVar
                v3 <- newEmptyMVar
                v4 <- newEmptyMVar
                v5 <- newEmptyMVar
-               return $ CatanVars v1 v2 v3 v4 v5
+               v6 <- newEmptyMVar
+               v7 <- newEmptyMVar
+               v8 <- newEmptyMVar
+               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8
 
 data Request = NextMove
              | MoveRobber
              | StealFrom [(Name, Color)]
+             | MonopolyChoice
+             | YearOfPlentyChoice
+             | RoadBuildingChoice
              deriving(Read, Show)
 
 data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | BuildCity CornerLocation
                   | BuildSettlement CornerLocation
-                  | PlayCard ProgressCard
+                  | PlayCard DevCard
                   | BuyCard
                   | TradeWithBank Resource Resource Int
                   | TradeWithPlayer [Resource] Color [Resource]
