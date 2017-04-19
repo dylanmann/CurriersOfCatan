@@ -164,7 +164,6 @@ newLongestRoad oldWinner roads =
       longest = Map.findMax lengths
       in
   case oldWinner of
-    _       | snd longest < 5  -> Nothing
     Nothing | snd longest >= 5 -> Just $ fst longest
     Just c  | snd longest > Map.findWithDefault 0 c lengths -> Just $ fst longest
     m -> m
@@ -248,16 +247,17 @@ instance Show Player where
   show Player{..} = unlines ["Player { name = " ++ show name,
                     "         resources = " ++ show resources,
                     "         cards = " ++ show cards,
+                    "         army = " ++ show knights,
                     "}"]
 
-data CatanMVars = CatanMVars{ nameVar    :: MVar Name,
-                            actionVar   :: MVar PlayerAction,
-                            requestVar  :: MVar Request,
-                            robberVar   :: MVar TileLocation,
-                            colorVar    :: MVar Color,
-                            yopVar      :: MVar (Resource, Resource),
-                            monopolyVar :: MVar Resource,
-                            roadVar     :: MVar (Road, Road)}
+data CatanMVars = CatanMVars{nameVar     :: MVar Name,
+                             actionVar   :: MVar PlayerAction,
+                             requestVar  :: MVar Request,
+                             robberVar   :: MVar TileLocation,
+                             colorVar    :: MVar Color,
+                             yopVar      :: MVar (Resource, Resource),
+                             monopolyVar :: MVar Resource,
+                             roadVar     :: MVar (Road, Road)}
 
 instance Show CatanMVars where
   show _ = "CatanMVars"

@@ -211,7 +211,6 @@ validRoad r@(_,_,c) = do
     return $ unique && contiguous && c == currentPlayer
 
 
-
 updateArmy :: MyState ()
 updateArmy = do
     game@Game{..} <- S.get
@@ -222,10 +221,8 @@ updateArmy = do
         updateLA   = S.put (game { largestArmy = Just c,
                                      players = updPlayer addToArmy c players})
     case largestArmy of
-        Just curr | knights currentP > knights (getPlayer curr players) ->
-                    updateLA
-        Nothing   | knights currentP >= 3                               ->
-                    updateLA
+        Just curr | knights currentP >= knights (getPlayer curr players) -> updateLA
+        Nothing   | knights currentP >= 2 -> updateLA
         _ -> updateNoLA
 
 drawCard :: MyState (Maybe DevCard)

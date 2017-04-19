@@ -43,21 +43,21 @@ progressP = P.choice [constP "Monopoly" Monopoly,
                       constP "YearOfPlenty" YearOfPlenty,
                       constP "RoadBuilding" RoadBuilding]
 devP :: P.Parser DevCard
-devP = P.choice [P.string "Progress" *> (Progress <$> progressP),
-                 constP "Knight" Knight]
+devP = wsP $ P.choice [Progress <$> wsP progressP,
+                       constP "Knight" Knight]
 
 playCardP :: P.Parser PlayerAction
-playCardP =  P.string "progress" *> (PlayCard <$> devP)
+playCardP = wsP $ P.string "play" *> (PlayCard <$> devP)
 
 resourceP :: P.Parser Resource
-resourceP = P.choice [constP "Wool" Wool,
+resourceP = wsP $ P.choice [constP "Wool" Wool,
                       constP "Ore" Ore,
                       constP "Lumber" Lumber,
                       constP "Grain" Grain,
                       constP "Brick" Brick]
 
 colorP :: P.Parser Color
-colorP = P.choice [constP "Red" Red,
+colorP = wsP $ P.choice [constP "Red" Red,
                    constP "Blue" Blue,
                    constP "White" White,
                    constP "Orange" Orange]
@@ -84,7 +84,7 @@ help = unlines
         "Build City: city <Corner x> <Corner r>",
         "Build Settlement: sett <Corner x> <Corner r>",
         "Buy Card: card",
-        "Play Card: progress <Card>",
+        "Play Card: play <Card>",
         "Trade with Bank or harbor: bank <Resource> <Resource> <Int>",
         "Trade with player: trade <Resources> <Color> <Resources>",
         "Next Turn: n",
@@ -109,26 +109,27 @@ ioThread c CatanMVars{..} = --do
     -- print "What is your name?: "
     -- name <- getLine
     -- putMVar nameVar name
-    go where go = do r <- takeMVar requestVar
-                     case r of
-                        NextMove -> takeMVar nameVar >>=
-                                    getNextAction >>=
-                                    putMVar actionVar
-                        MoveRobber -> promptForRobber >>=
-                                      putMVar robberVar
-                        StealFrom ps -> getChoiceFrom ps >>=
-                                        putMVar colorVar
-                        RoadBuildingChoice -> promptForRoadBuilder c >>=
-                                              putMVar roadVar
-                        YearOfPlentyChoice -> promptForYOP >>=
-                                              putMVar yopVar
-                        MonopolyChoice -> promptForMonopoly >>=
-                                          putMVar monopolyVar
-                     go
+    go where go = do
+              r <- takeMVar requestVar
+              case r of
+                 NextMove ->           do n <- takeMVar nameVar
+                                          a <- getNextAction n
+                                          putMVar actionVar a
+                 MoveRobber ->         do tile <- promptForRobber
+                                          putMVar robberVar tile
+                 StealFrom ps ->       do color <- getChoiceFrom ps
+                                          putMVar colorVar color
+                 RoadBuildingChoice -> do roads <- promptForRoadBuilder c
+                                          putMVar roadVar roads
+                 YearOfPlentyChoice -> do rs <- promptForYOP
+                                          putMVar yopVar rs
+                 MonopolyChoice ->     do res <- promptForMonopoly
+                                          putMVar monopolyVar res
+              go
 
 promptForRobber :: IO TileLocation
 promptForRobber = do
-    putStr "where do you want to put the robber?"
+    putStrLn "where do you want to put the robber?"
     action <- getLine
     case P.parse tileP action of
         Left _ -> putStrLn "invalid location" >> promptForRobber
@@ -136,7 +137,8 @@ promptForRobber = do
 
 promptForMonopoly :: IO Resource
 promptForMonopoly = do
-    putStr "What resource do you want to monopolize?"
+    putStrLn "What resource do you want to monopolize?"
+    putStr prompt
     action <- getLine
     case P.parse resourceP action of
         Left _ -> putStrLn "invalid resource" >> promptForMonopoly
@@ -144,7 +146,8 @@ promptForMonopoly = do
 
 promptForYOP :: IO (Resource, Resource)
 promptForYOP = do
-    putStr "Which two resources do you want?"
+    putStrLn "Which two resources do you want?"
+    putStr prompt
     action <- getLine
     case P.parse resourcesP action of
         Right [r1, r2] -> return (r1, r2)
@@ -152,7 +155,8 @@ promptForYOP = do
 
 promptForRoadBuilder :: Color -> IO (Road, Road)
 promptForRoadBuilder c = do
-    putStr "where do you want to build two roads?"
+    putStrLn "where do you want to build two roads?"
+    putStr prompt
     action <- getLine
     case P.parse (rbP c) action of
         Left _ -> putStrLn "invalid roads" >> promptForRoadBuilder c

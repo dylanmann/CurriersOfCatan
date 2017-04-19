@@ -69,8 +69,12 @@ advancePlayer = do
 shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM
 
-takeTurn :: MyState ()
-takeTurn = do
+isPlayedCard :: PlayerAction -> Bool
+isPlayedCard (PlayCard _) = True
+isPlayedCard _ = False
+
+takeTurn :: Bool -> MyState ()
+takeTurn playedCard = do
     g@Game{..} <- S.get
     CatanMVars{..} <- getCatanMVars
     action <- liftIO $ do
@@ -79,7 +83,7 @@ takeTurn = do
                 putMVar nameVar (name (getPlayer currentPlayer players))
                 takeMVar actionVar
     turnOver <- handleAction action
-    unless turnOver takeTurn
+    unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
 playGame :: IO Name
 playGame = do
@@ -92,7 +96,7 @@ playGame = do
     let go = do
             advancePlayer
             Game{..} <- S.get
-            takeTurn
+            takeTurn False
             final <- gameOver
             if final then
                 return $ name (getPlayer currentPlayer players)
