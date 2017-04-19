@@ -102,12 +102,15 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
-ioThread :: MVar Name -> MVar PlayerAction -> IO ()
-ioThread nameVar actionVar = do
-    n <- takeMVar nameVar
-    a <- getNextAction n
-    putMVar actionVar a
-    ioThread nameVar actionVar
+ioThread :: (MVar Name, MVar PlayerAction) -> IO ()
+ioThread (nameVar, actionVar) = do
+    print "What is your name?: "
+    name <- getLine
+    putMVar nameVar name
+    go where go = do n <- takeMVar nameVar
+                     a <- getNextAction n
+                     putMVar actionVar a
+                     go
 
 promptForRobber :: IO TileLocation
 promptForRobber = do
