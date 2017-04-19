@@ -10,7 +10,6 @@ import Control.Concurrent.MVar
 import qualified Parser as P
 import qualified ParserCombinators as P
 import CatanTypes
-import CatanBoard
 
 
 constP :: String -> a -> P.Parser a

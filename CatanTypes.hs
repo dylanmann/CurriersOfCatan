@@ -6,6 +6,7 @@ module CatanTypes(ProgressCard(..),
                   devCards,
 
                   Building(..),
+                  defaultBuildings,
                   buildingColor,
                   buildingLoc,
                   buildingTileLocs,
@@ -29,13 +30,18 @@ module CatanTypes(ProgressCard(..),
                   validPlayer,
 
                   Roads,
+                  defaultRoads,
                   newLongestRoad,
                   Game(..),
                   produces,
 
                   CatanVars(..),
                   Request(..),
-                  PlayerAction(..))
+                  PlayerAction(..),
+
+                  Resource(..),
+
+                  module CatanBoard)
                   where
 
 import qualified Data.Map as Map
@@ -45,6 +51,15 @@ import Data.List as List
 import Data.Ord
 import CatanBoard
 import Control.Concurrent.MVar
+
+data Color = Blue | Red | Orange | White
+    deriving (Enum, Read, Show, Eq, Ord)
+
+type Roads = [(CornerLocation, CornerLocation, Color)]
+
+data Building = Settlement Color CornerLocation
+              | City       Color CornerLocation
+    deriving (Read, Show, Eq)
 
 data ProgressCard = RoadBuilding
                   | YearOfPlenty
@@ -90,18 +105,22 @@ emptyResources = Resources $ foldr (\x -> Map.insert (toEnum x) 0) Map.empty [0.
 -- Players can change with the state
 data Player = Player {name::Name,
                       resources::Resources,
-                      cards::[DevCard]}
-    deriving (Read, Eq)
+                      cards::[DevCard],
+                      mvars::CatanVars}
+    deriving (Read)
 
-newPlayer :: Name -> Player
-newPlayer n = Player n emptyResources []
+newPlayer :: Name -> IO Player
+newPlayer n = do m <- makeMVars
+                 return $ Player n emptyResources [] m
 
-makePlayers :: [(Color,Name)] -> Players
-makePlayers = Players . foldr add Map.empty
-    where add (c, n) = Map.insert c (newPlayer n)
+makePlayers :: [(Color,Name)] -> IO Players
+makePlayers l = foldr add (return Map.empty) l >>= return . Players
+    where add (c, n) mm = do m <- mm
+                             p <- newPlayer n
+                             return $ Map.insert c p m
 
 data Players = Players (Map Color Player)
-  deriving (Read, Eq)
+  deriving (Read)
 
 edges :: Color -> CornerLocation -> Roads -> [CornerLocation]
 edges c l = foldr step []
@@ -158,8 +177,7 @@ data Game = Game {board         :: Board,
                   longestRoad   :: Maybe Color,
                   largestArmy   :: Maybe Color,
                   deck          :: [DevCard],
-                  currentPlayer :: Color,
-                  mvars         :: Map Color CatanVars}
+                  currentPlayer :: Color}
     deriving (Read)
 
 -- lol these ended up working out well
@@ -194,6 +212,15 @@ nextPlayer :: Color -> Color
 nextPlayer White = Blue
 nextPlayer c = succ c
 
+defaultColorOrder :: [Color]
+defaultColorOrder = [White, Blue, Orange, Blue, Red, White, Red, Orange]
+
+defaultBuildings :: [Building]
+defaultBuildings = zipWith Settlement defaultColorOrder defaultBuildingLocations
+
+defaultRoads :: Roads
+defaultRoads = map step (zip defaultRoadLocations defaultColorOrder)
+  where step((x1, x2), c) = (x1, x2, c)
 
 instance Show Game where
   show Game{..} = unlines
@@ -227,10 +254,18 @@ data CatanVars = CatanVars{ nameVar    :: MVar Name,
                             colorVar   :: MVar Color}
 
 instance Show CatanVars where
-  show cv = "CatanVars"
+  show _ = "CatanVars"
 
 instance Read CatanVars where
   readsPrec _ = undefined
+
+makeMVars :: IO CatanVars
+makeMVars = do v1 <- newEmptyMVar
+               v2 <- newEmptyMVar
+               v3 <- newEmptyMVar
+               v4 <- newEmptyMVar
+               v5 <- newEmptyMVar
+               return $ CatanVars v1 v2 v3 v4 v5
 
 data Request = NextMove
              | MoveRobber

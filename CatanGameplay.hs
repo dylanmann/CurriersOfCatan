@@ -3,7 +3,7 @@
 
 module CatanGamePlay where
 
-import Data.Maybe(mapMaybe,fromJust)
+import Data.Maybe(mapMaybe)
 import Control.Monad (liftM2, unless)
 import qualified Control.Monad.Random.Class as Random
 import Control.Monad.Random(MonadRandom)
@@ -12,8 +12,6 @@ import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
 import Control.Concurrent.MVar
 import Control.Concurrent(forkIO)
-import qualified Data.Map as Map
-import CatanBoard
 import CatanTypes
 import CatanActions
 import CatanActionParsing
@@ -21,7 +19,7 @@ import CatanActionParsing
 main :: IO Name
 main = playGame
 
-defaultPlayers :: Players
+defaultPlayers :: IO Players
 defaultPlayers = makePlayers
     [(Blue,"blue"),(Red,"red"),(White,"white"),(Orange,"orange")]
 
@@ -38,31 +36,35 @@ setupPlayers = do
     r <- getName Red [snd b]
     w <- getName White (map snd [b, r])
     o <- getName Orange (map snd [b, r, w])
-    return $ makePlayers [b, r, o, w]
+    makePlayers [b, r, o, w]
 
 initialize :: IO Game
 initialize = do
     b <- setupBoard
     d <- shuffleM devCards
     p <- setupPlayers
-    m <- makeMVars
     return $
-     Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White m
+     Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White
+
+getCatanMVars :: MyState CatanVars
+getCatanMVars = do
+    Game{..} <- S.get
+    return $ mvars $ getPlayer Orange players
 
 rollSeven :: MyState ()
-rollSeven = do Game{mvars, currentPlayer} <- S.get
-               let CatanVars{..} = fromJust $ Map.lookup currentPlayer mvars
-               liftIO $ putStr "penalty victims: "
+rollSeven = do CatanVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
-               liftIO $ print victims
-               liftIO $ putMVar requestVar MoveRobber
-               newRobber <- liftIO $ takeMVar robberVar
+               newRobber <- liftIO $ do
+                    putStr "penalty victims: "
+                    print victims
+                    putMVar requestVar MoveRobber
+                    takeMVar robberVar
                moveRobber newRobber
 
 stealFromOneOf :: [(Name, Color)] -> MyState()
 stealFromOneOf l = do
     game@Game{..} <- S.get
-    let CatanVars{..} = fromJust $ Map.lookup currentPlayer mvars
+    CatanVars{..} <- getCatanMVars
     liftIO $ putStr "options to steal from: " >> print (unwords (map fst l))
     c <- liftIO $ putMVar requestVar (StealFrom l) >>
                   takeMVar colorVar
@@ -113,39 +115,23 @@ shuffle = shuffleM
 takeTurn :: MyState ()
 takeTurn = do
     g@Game{..} <- S.get
-    let CatanVars{..} = fromJust $ Map.lookup currentPlayer mvars
-    liftIO $ do print g
+    CatanVars{..} <- getCatanMVars
+    action <- liftIO $ do
+                print g
                 putMVar requestVar NextMove
                 putMVar nameVar (name (getPlayer currentPlayer players))
-    action <- liftIO $ takeMVar actionVar
+                takeMVar actionVar
     turnOver <- handleAction action
     unless turnOver $ takeTurn
-
-makeMVars :: IO (Map.Map Color CatanVars)
-makeMVars = do
-    red <- make
-    blue <- make
-    orange <- make
-    white <- make
-    return $ Map.fromList
-            [(Red, red), (Orange, orange), (White, white), (Blue, blue)]
-
-    where make = do
-            v1 <- newEmptyMVar
-            v2 <- newEmptyMVar
-            v3 <- newEmptyMVar
-            v4 <- newEmptyMVar
-            v5 <- newEmptyMVar
-            return $ CatanVars v1 v2 v3 v4 v5
 
 playGame :: IO Name
 playGame = do
     game <- liftIO $ initialize
-    let mvarLookup c = Map.findWithDefault (error "impossible failure") c (mvars game)
-    _ <- forkIO $ ioThread $ mvarLookup Blue
-    _ <- forkIO $ ioThread $ mvarLookup Red
-    _ <- forkIO $ ioThread $ mvarLookup Orange
-    _ <- forkIO $ ioThread $ mvarLookup White
+    let ioThreadColor c = forkIO . ioThread . mvars . getPlayer c $ players game
+    _ <- ioThreadColor Red
+    _ <- ioThreadColor White
+    _ <- ioThreadColor Blue
+    _ <- ioThreadColor Orange
     let go = do
             advancePlayer
             Game{..} <- S.get
@@ -162,5 +148,3 @@ rollDice = do
     roll <- liftM2 (+) die die
     liftIO $ putStr "roll: " >> print roll
     return roll
-
-

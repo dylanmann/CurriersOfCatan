@@ -12,6 +12,7 @@ module CatanBoard(Terrain(..),
                   desert,
                   makeTileLocation,
 
+                  Resource(..),
                   Reward,
                   rewardTiles,
                   rewardLocs,
@@ -29,22 +30,13 @@ module CatanBoard(Terrain(..),
                   Board(..),
                   setupBoard,
 
-                  -- This stuff is only in ehre to avoid circular dependencies
-                  -- TODO: put this all back in catanTypes
-                  defaultBuildings,
-                  Building(..),
-                  Color(..),
-                  Roads,
-                  defaultRoads,
-                  Resource(..))
+                  defaultBuildingLocations,
+                  defaultRoadLocations)
                   where
 
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(fromJust)
-
-data Color = Blue | Red | Orange | White
-    deriving (Enum, Read, Show, Eq, Ord)
 
 
 data Resource = Brick | Lumber | Ore | Grain | Wool
@@ -70,8 +62,6 @@ terrainOrder :: [Terrain]
 terrainOrder = [Mountains, Pasture, Forest, Hills, Mountains, Pasture, Pasture,
                 Fields, Hills, Forest, Fields, Fields, Hills, Pasture, Forest,
                 Fields, Mountains, Forest]
-
-type Roads = [(CornerLocation, CornerLocation, Color)]
 
 data Terrain = Hills     -- produce brick
              | Forest    -- produce lumber
@@ -114,10 +104,6 @@ makeTileLocation 0 0                  = Just (0, 0)
 makeTileLocation x 1 | x < 6          = Just (x, 1)
 makeTileLocation x 2 | x < 12         = Just (x, 2)
 makeTileLocation _ _                  = Nothing
-
-data Building = Settlement Color CornerLocation
-              | City       Color CornerLocation
-    deriving (Read, Show, Eq)
 
 -- 30 around outside, 18 around inside, 6 around center
 -- corners indexed with radial coordinates where 0 is the far right of the hex
@@ -207,13 +193,13 @@ desert = foldr des err . Map.toList . tiles
                  des _ acc = acc
                  err = error "desert definitely exists"
 
-defaultBuildings :: [Building]
-defaultBuildings = map (uncurry Settlement)
-   [(White, (1,1)), (Blue, (3, 1)),  (Orange, (5, 1)), (Blue, (7,1)),
-    (Red, (9,1)),   (White, (11,1)), (Red, (13,1)),    (Orange, (16,1))]
+defaultBuildingLocations :: [CornerLocation]
+defaultBuildingLocations =
+  [(1,1), (3, 1), (5, 1), (7,1), (9,1), (11,1), (13,1), (16,1)]
 
-defaultRoads :: Roads
-defaultRoads = map mkRoad
-          [(0, 1, White), (2, 3, Blue), (4, 5, Orange), (6, 7, Blue),
-           (8, 9, Red), (10, 11, White), (13, 14, Red), (15, 16, Orange)]
-      where mkRoad (x1, x2, c) = ((x1, 1), (x2, 1), c)
+
+defaultRoadLocations :: [(CornerLocation, CornerLocation)]
+defaultRoadLocations = map mkLoc
+          [(0, 1), (2, 3), (4, 5), (6, 7),
+           (8, 9), (10, 11), (13, 14), (15, 16)]
+      where mkLoc (x1, x2) = ((x1, 1), (x2, 1))
