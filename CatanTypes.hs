@@ -31,7 +31,11 @@ module CatanTypes(ProgressCard(..),
                   Roads,
                   newLongestRoad,
                   Game(..),
-                  produces)
+                  produces,
+
+                  CatanVars(..),
+                  Request(..),
+                  PlayerAction(..))
                   where
 
 import qualified Data.Map as Map
@@ -40,6 +44,7 @@ import Data.Maybe(fromMaybe, fromJust)
 import Data.List as List
 import Data.Ord
 import CatanBoard
+import Control.Concurrent.MVar
 
 data ProgressCard = RoadBuilding
                   | YearOfPlenty
@@ -153,7 +158,8 @@ data Game = Game {board         :: Board,
                   longestRoad   :: Maybe Color,
                   largestArmy   :: Maybe Color,
                   deck          :: [DevCard],
-                  currentPlayer :: Color}
+                  currentPlayer :: Color,
+                  mvars         :: Map Color CatanVars}
     deriving (Read)
 
 -- lol these ended up working out well
@@ -213,3 +219,31 @@ instance Show Player where
                     "         resources = " ++ show resources,
                     "         cards = " ++ show cards,
                     "}"]
+
+data CatanVars = CatanVars{ nameVar    :: MVar Name,
+                            actionVar  :: MVar PlayerAction,
+                            requestVar :: MVar Request,
+                            robberVar  :: MVar TileLocation,
+                            colorVar   :: MVar Color}
+
+instance Show CatanVars where
+  show cv = "CatanVars"
+
+instance Read CatanVars where
+  readsPrec _ = undefined
+
+data Request = NextMove
+             | MoveRobber
+             | StealFrom [(Name, Color)]
+             deriving(Read, Show)
+
+data PlayerAction = BuildRoad CornerLocation CornerLocation
+                  | BuildCity CornerLocation
+                  | BuildSettlement CornerLocation
+                  | PlayCard ProgressCard
+                  | BuyCard
+                  | TradeWithBank Resource Resource Int
+                  | TradeWithPlayer [Resource] Color [Resource]
+                  | EndTurn
+                  | EndGame
+                  deriving(Read, Show)

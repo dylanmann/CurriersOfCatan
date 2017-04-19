@@ -1,7 +1,6 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
-module CatanActions(PlayerAction(..),
-                    handleAction,
+module CatanActions(handleAction,
                     rollSevenPenalty,
                     gameOver,
 
@@ -24,17 +23,6 @@ import CatanTypes
 import CatanBoard
 
 type MyState = S.StateT Game IO
-
-data PlayerAction = BuildRoad CornerLocation CornerLocation
-                  | BuildCity CornerLocation
-                  | BuildSettlement CornerLocation
-                  | PlayCard ProgressCard
-                  | BuyCard
-                  | TradeWithBank Resource Resource Int
-                  | TradeWithPlayer [Resource] Color [Resource]
-                  | EndTurn
-                  | EndGame
-
 
 buildingVP :: Building -> Int
 buildingVP Settlement{} = 1

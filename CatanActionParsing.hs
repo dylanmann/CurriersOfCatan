@@ -1,8 +1,6 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
-
-module CatanActionParsing (ioThread,
-                           promptForRobber,
-                           getChoiceFrom) where
+{-# LANGUAGE RecordWildCards #-}
+module CatanActionParsing (ioThread) where
 
 import Control.Applicative
 import Data.Char(isSpace)
@@ -11,7 +9,6 @@ import Control.Concurrent.MVar
 
 import qualified Parser as P
 import qualified ParserCombinators as P
-import CatanActions
 import CatanTypes
 import CatanBoard
 
@@ -102,14 +99,16 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
-ioThread :: (MVar Name, MVar PlayerAction) -> IO ()
-ioThread (nameVar, actionVar) = do
-    print "What is your name?: "
-    name <- getLine
-    putMVar nameVar name
-    go where go = do n <- takeMVar nameVar
-                     a <- getNextAction n
-                     putMVar actionVar a
+ioThread :: CatanVars -> IO ()
+ioThread CatanVars{..} = --do
+    -- print "What is your name?: "
+    -- name <- getLine
+    -- putMVar nameVar name
+    go where go = do r <- takeMVar requestVar
+                     case r of
+                        NextMove -> takeMVar nameVar >>= getNextAction >>= putMVar actionVar
+                        MoveRobber -> promptForRobber >>= putMVar robberVar
+                        StealFrom ps -> getChoiceFrom ps >>= putMVar colorVar
                      go
 
 promptForRobber :: IO TileLocation

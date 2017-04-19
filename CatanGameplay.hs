@@ -3,8 +3,8 @@
 
 module CatanGamePlay where
 
-import Data.Maybe(mapMaybe)
-import Control.Monad (liftM2, unless,mapM)
+import Data.Maybe(mapMaybe,fromJust)
+import Control.Monad (liftM2, unless)
 import qualified Control.Monad.Random.Class as Random
 import Control.Monad.Random(MonadRandom)
 import System.Random.Shuffle(shuffleM)
@@ -12,11 +12,11 @@ import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
 import Control.Concurrent.MVar
 import Control.Concurrent(forkIO)
+import qualified Data.Map as Map
 import CatanBoard
 import CatanTypes
 import CatanActions
 import CatanActionParsing
-import qualified Data.Map as Map
 
 main :: IO Name
 main = playGame
@@ -32,26 +32,40 @@ getName c used = do
     name <- getLine
     if name `notElem` used then return (c, name) else getName c used
 
-initialize :: Map.Map Color Name -> IO Game
-initialize names = do
+setupPlayers :: IO Players
+setupPlayers = do
+    b <- getName Blue []
+    r <- getName Red [snd b]
+    w <- getName White (map snd [b, r])
+    o <- getName Orange (map snd [b, r, w])
+    return $ makePlayers [b, r, o, w]
+
+initialize :: IO Game
+initialize = do
     b <- setupBoard
     d <- shuffleM devCards
-    let p = makePlayers $ Map.toList names
+    p <- setupPlayers
+    m <- makeMVars
     return $
-     Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White
+     Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White m
 
 rollSeven :: MyState ()
-rollSeven = do liftIO $ putStr "penalty victims: "
+rollSeven = do Game{mvars, currentPlayer} <- S.get
+               let CatanVars{..} = fromJust $ Map.lookup currentPlayer mvars
+               liftIO $ putStr "penalty victims: "
                victims <- rollSevenPenalty
                liftIO $ print victims
-               newRobber <- liftIO promptForRobber
+               liftIO $ putMVar requestVar MoveRobber
+               newRobber <- liftIO $ takeMVar robberVar
                moveRobber newRobber
 
 stealFromOneOf :: [(Name, Color)] -> MyState()
 stealFromOneOf l = do
     game@Game{..} <- S.get
+    let CatanVars{..} = fromJust $ Map.lookup currentPlayer mvars
     liftIO $ putStr "options to steal from: " >> print (unwords (map fst l))
-    c <- liftIO $ getChoiceFrom l
+    c <- liftIO $ putMVar requestVar (StealFrom l) >>
+                  takeMVar colorVar
     let resChoices = allResources $ getPlayer c players
     case resChoices of
         [] -> liftIO $ putStrLn "no resources"
@@ -96,43 +110,46 @@ advancePlayer = do
 shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM
 
-takeTurn :: (MVar Name, MVar PlayerAction) -> MyState ()
-takeTurn (nameVar, actionVar) = do
+takeTurn :: MyState ()
+takeTurn = do
     g@Game{..} <- S.get
-    liftIO $ print g
-    liftIO $ putMVar nameVar (name (getPlayer currentPlayer players))
+    let CatanVars{..} = fromJust $ Map.lookup currentPlayer mvars
+    liftIO $ do print g
+                putMVar requestVar NextMove
+                putMVar nameVar (name (getPlayer currentPlayer players))
     action <- liftIO $ takeMVar actionVar
     turnOver <- handleAction action
-    unless turnOver $ takeTurn (nameVar, actionVar)
+    unless turnOver $ takeTurn
 
-makeMVars :: IO (Map.Map Color (MVar Name, MVar PlayerAction))
+makeMVars :: IO (Map.Map Color CatanVars)
 makeMVars = do
-    red <- pair
-    blue <- pair
-    orange <- pair
-    white <- pair
+    red <- make
+    blue <- make
+    orange <- make
+    white <- make
     return $ Map.fromList
             [(Red, red), (Orange, orange), (White, white), (Blue, blue)]
 
-    where pair = do
-            nameVar <- newEmptyMVar
-            actionVar <- newEmptyMVar
-            return (nameVar, actionVar)
+    where make = do
+            v1 <- newEmptyMVar
+            v2 <- newEmptyMVar
+            v3 <- newEmptyMVar
+            v4 <- newEmptyMVar
+            v5 <- newEmptyMVar
+            return $ CatanVars v1 v2 v3 v4 v5
 
 playGame :: IO Name
 playGame = do
-    mvars <- makeMVars
-    let mvarLookup c = Map.findWithDefault (error "impossible failure") c mvars
-    forkIO $ ioThread $ mvarLookup Blue
-    forkIO $ ioThread $ mvarLookup Red
-    forkIO $ ioThread $ mvarLookup Orange
-    forkIO $ ioThread $ mvarLookup White
-    names <- mapM (takeMVar . fst) mvars
-    game <- liftIO $ initialize names
+    game <- liftIO $ initialize
+    let mvarLookup c = Map.findWithDefault (error "impossible failure") c (mvars game)
+    _ <- forkIO $ ioThread $ mvarLookup Blue
+    _ <- forkIO $ ioThread $ mvarLookup Red
+    _ <- forkIO $ ioThread $ mvarLookup Orange
+    _ <- forkIO $ ioThread $ mvarLookup White
     let go = do
             advancePlayer
             Game{..} <- S.get
-            takeTurn $ mvarLookup currentPlayer
+            takeTurn
             final <- gameOver
             if final then
                 return $ name (getPlayer currentPlayer players)
@@ -145,3 +162,5 @@ rollDice = do
     roll <- liftM2 (+) die die
     liftIO $ putStr "roll: " >> print roll
     return roll
+
+
