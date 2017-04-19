@@ -122,11 +122,11 @@ takeTurn = do
                 putMVar nameVar (name (getPlayer currentPlayer players))
                 takeMVar actionVar
     turnOver <- handleAction action
-    unless turnOver $ takeTurn
+    unless turnOver takeTurn
 
 playGame :: IO Name
 playGame = do
-    game <- liftIO $ initialize
+    game <- liftIO initialize
     let ioThreadColor c = forkIO . ioThread . mvars . getPlayer c $ players game
     _ <- ioThreadColor Red
     _ <- ioThreadColor White

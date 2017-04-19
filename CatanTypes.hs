@@ -114,7 +114,7 @@ newPlayer n = do m <- makeMVars
                  return $ Player n emptyResources [] m
 
 makePlayers :: [(Color,Name)] -> IO Players
-makePlayers l = foldr add (return Map.empty) l >>= return . Players
+makePlayers l = fmap Players (foldr add (return Map.empty) l)
     where add (c, n) mm = do m <- mm
                              p <- newPlayer n
                              return $ Map.insert c p m
@@ -143,7 +143,7 @@ longestPathFrom = aux [] where
     | notIn = []
     | otherwise =
       maximumBy (comparing $ uninterruptedLength c roads) $
-                []:[start : (aux (start:seen) roads c e end) |
+                []:[start : aux (start : seen) roads c e end |
                       e <- edges c start roads, e `notElem` seen]
       where notIn = all (\(l1, l2, c1) -> c1 /= c || (l1 /= start && l2 /= start
                                                       && l1 /= end && l2 /= end)) roads
@@ -219,8 +219,7 @@ defaultBuildings :: [Building]
 defaultBuildings = zipWith Settlement defaultColorOrder defaultBuildingLocations
 
 defaultRoads :: Roads
-defaultRoads = map step (zip defaultRoadLocations defaultColorOrder)
-  where step((x1, x2), c) = (x1, x2, c)
+defaultRoads = (uncurry zip3) (unzip defaultRoadLocations) defaultColorOrder
 
 instance Show Game where
   show Game{..} = unlines

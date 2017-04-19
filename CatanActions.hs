@@ -20,7 +20,6 @@ import Control.Monad(when, unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
 import CatanTypes
-import CatanBoard
 
 type MyState = S.StateT Game IO
 
