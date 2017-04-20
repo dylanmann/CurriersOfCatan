@@ -67,6 +67,8 @@ advancePlayer = do
   game@Game{..} <- S.get
   let next = nextPlayer currentPlayer
   S.put(game{currentPlayer = next})
+  CatanMVars{..} <- getCatanMVars
+  putMVar rollVar roll
 
 shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM

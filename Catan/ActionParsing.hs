@@ -116,11 +116,11 @@ commandLineInput c CatanMVars{..} = --do
     -- putMVar nameVar name
     go where go = do
               threadDelay 500
+              r <- takeMVar requestVar
               roll <- tryTakeMVar rollVar
               case roll of
-                Just r -> putStr "roll: " >> print r
+                Just i -> putStr "roll: " >> print i
                 Nothing -> return ()
-              r <- takeMVar requestVar
               case r of
                  NextMove ->           do game <- takeMVar gameVar
                                           print game

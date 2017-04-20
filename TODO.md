@@ -5,13 +5,7 @@ setup:
 		lays down 2 settlements then two roads on board
 
 Roll Seven:
-	Players pick which cards they want to give back instead of just giving back random cards
-
-Playing development cards:
-	Cannot be one you bought that turn
-
-Harbors need to go in correct places
-
+	Players pick which cards they want to give up instead of just giving back random cards
 
 ui code
 

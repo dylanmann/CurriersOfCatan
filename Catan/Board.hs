@@ -169,12 +169,15 @@ rewardLocs (ThreeTiles t1 t2 t3, _) = [t1, t2, t3]
 rewardTiles :: Board -> Reward -> [Tile]
 rewardTiles b r = map (getTile b) (rewardLocs r)
 
-allTiles :: [Tile]
-allTiles = zipWith Paying terrainOrder tokenOrder ++ [Desert]
+allTiles :: IO [Tile]
+allTiles = do terrs <- shuffleM terrainOrder
+              toks <- shuffleM tokenOrder
+              shuffleM $ zipWith Paying terrs toks ++ [Desert]
 
 setupBoard :: IO Board
 setupBoard = do allCs <- allCorners
-                let ts = Map.fromList (zip tileIndices allTiles)
+                allTs <- allTiles
+                let ts = Map.fromList (zip tileIndices allTs)
                     cs = Map.fromList (zip cornerIndices allCs)
                 return $ Board ts cs
 
