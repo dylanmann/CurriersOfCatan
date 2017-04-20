@@ -37,6 +37,7 @@ module Board(Terrain(..),
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(fromJust)
+import System.Random.Shuffle(shuffleM)
 
 
 data Resource = Brick | Lumber | Ore | Grain | Wool
@@ -143,11 +144,19 @@ outerNeighbors = TwoTiles (11, 2) (0, 2) : take 29 (pat 0) where
 neighbors :: [Neighbors]
 neighbors = innerNeighbors ++ middleNeighbors ++ outerNeighbors
 
-allCorners :: [Corner]
-allCorners = zip neighbors harbors
+allCorners :: IO [Corner]
+allCorners = do h <- harbors
+                return $ zip neighbors $ makeHarbors h
 
-harbors :: [Maybe Harbor]
-harbors = replicate 54 Nothing
+makeHarbors :: [Harbor] -> [Maybe Harbor]
+makeHarbors (h1:h2:tl) =
+  Just h1: Just h1: Nothing: Nothing: Just h2: Just h2: Nothing: makeHarbors tl
+makeHarbors (h:[]) = [Just h, Just h]
+makeHarbors [] = []
+
+harbors :: IO [Harbor]
+harbors = shuffleM $ map SpecialHarbor [Wool, Lumber, Brick, Ore, Grain] ++
+          replicate 4 GenericHarbor
 
 data Board = Board {tiles :: Tiles, corners :: Corners}
   deriving(Read, Show, Eq)
@@ -164,9 +173,10 @@ allTiles :: [Tile]
 allTiles = zipWith Paying terrainOrder tokenOrder ++ [Desert]
 
 setupBoard :: IO Board
-setupBoard = let ts = Map.fromList (zip tileIndices allTiles)
-                 cs = Map.fromList (zip cornerIndices allCorners)
-             in return $ Board ts cs
+setupBoard = do allCs <- allCorners
+                let ts = Map.fromList (zip tileIndices allTiles)
+                    cs = Map.fromList (zip cornerIndices allCs)
+                return $ Board ts cs
 
 
 getCorner :: Board -> CornerLocation -> Corner
