@@ -52,3 +52,49 @@ split each path into the two sides of the point
 
 if same color then keep original add new point to both sides,
 otherwise discard original
+
+
+
+
+
+
+
+
+
+ui code
+
+.
+.
+.
+.
+.
+.
+.
+..
+.
+.
+.
+.
+.
+.
+.
+
+
+
+
+
+
+Event Loop:
+
+Client waits for Request:
+
+server sends Request
+	   waits for Action
+
+client sends Action
+	   waits for Game
+	   updates ui based on game
+
+server sends gamestate
+       sends next Request
+       waits for Action
