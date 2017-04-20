@@ -52,7 +52,7 @@ import Data.Maybe(fromMaybe, fromJust)
 import Data.List as List
 import Data.Ord
 import Board
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar.Lifted
 
 data Color = Blue | Red | Orange | White
     deriving (Enum, Read, Show, Eq, Ord)
@@ -182,7 +182,8 @@ data Game = Game {board         :: Board,
                   largestArmy   :: Maybe Color,
                   deck          :: [DevCard],
                   currentPlayer :: Color,
-                  errorMessage  :: Maybe String}
+                  errorMessage  :: Maybe String,
+                  pendingCards  :: [DevCard]}
     deriving (Read)
 
 -- lol these ended up working out well
@@ -261,7 +262,8 @@ data CatanMVars = CatanMVars{nameVar     :: MVar Name,
                              yopVar      :: MVar (Resource, Resource),
                              monopolyVar :: MVar Resource,
                              roadVar     :: MVar (Road, Road),
-                             gameVar     :: MVar Game}
+                             gameVar     :: MVar Game,
+                             rollVar     :: MVar Int}
 
 instance Show CatanMVars where
   show _ = "CatanMVars"
@@ -270,16 +272,17 @@ instance Read CatanMVars where
   readsPrec _ = undefined
 
 makeMVars :: IO CatanMVars
-makeMVars = do v1 <- newEmptyMVar
-               v2 <- newEmptyMVar
-               v3 <- newEmptyMVar
-               v4 <- newEmptyMVar
-               v5 <- newEmptyMVar
-               v6 <- newEmptyMVar
-               v7 <- newEmptyMVar
-               v8 <- newEmptyMVar
-               v9 <- newEmptyMVar
-               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9
+makeMVars = do v1  <- newEmptyMVar
+               v2  <- newEmptyMVar
+               v3  <- newEmptyMVar
+               v4  <- newEmptyMVar
+               v5  <- newEmptyMVar
+               v6  <- newEmptyMVar
+               v7  <- newEmptyMVar
+               v8  <- newEmptyMVar
+               v9  <- newEmptyMVar
+               v10 <- newEmptyMVar
+               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9 v10
 
 data Request = NextMove
              | MoveRobber
@@ -298,4 +301,5 @@ data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | TradeWithPlayer [Resource] Color [Resource]
                   | EndTurn
                   | EndGame
+                  | Cheat [Resource]
                   deriving(Read, Show)

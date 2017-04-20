@@ -10,17 +10,19 @@ module Actions(handleAction,
                spend,
                recieve,
 
-               getCatanMVars)
+               getCatanMVars,
+
+               movePendingCards)
                where
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
 
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar.Lifted
 import System.Random.Shuffle(shuffleM)
-import Control.Monad.IO.Class(liftIO, MonadIO)
+import Control.Monad.IO.Class(liftIO)
 import Control.Monad(unless)
-import Data.Maybe(fromJust, isNothing, mapMaybe)
+import Data.Maybe(mapMaybe, fromMaybe)
 
 import Types
 
@@ -182,8 +184,8 @@ playCard card = do
 playProgress :: ProgressCard -> MyState ()
 playProgress Monopoly = do
     CatanMVars{..} <- getCatanMVars
-    r <- liftIO $ putMVar requestVar MonopolyChoice >>
-                  takeMVar monopolyVar
+    putMVar requestVar MonopolyChoice
+    r <- takeMVar monopolyVar
     game@Game{..} <- S.get
     let newPs = foldr (step r currentPlayer) players (allPlayers players)
     S.put $ game {players = newPs}
@@ -194,8 +196,8 @@ playProgress Monopoly = do
 playProgress RoadBuilding = do
     CatanMVars{..} <- getCatanMVars
     game@Game{..} <- S.get
-    (r1, r2) <- liftIO $ putMVar requestVar RoadBuildingChoice >>
-                        takeMVar roadVar
+    putMVar requestVar RoadBuildingChoice
+    (r1, r2) <- takeMVar roadVar
     let newRoads = r1:r2:roads
     v1 <- validRoad r1
     v2 <- validRoad r2
@@ -207,8 +209,8 @@ playProgress RoadBuilding = do
 playProgress YearOfPlenty = do
     CatanMVars{..} <- getCatanMVars
     game@Game{..} <- S.get
-    (r1, r2) <- liftIO $ putMVar requestVar YearOfPlentyChoice >>
-                        takeMVar yopVar
+    putMVar requestVar YearOfPlentyChoice
+    (r1, r2) <- takeMVar yopVar
     S.put(game{players = recieve [r1,r2] currentPlayer players})
 
 
@@ -251,20 +253,30 @@ unDrawCard card = do
     game <- S.get
     S.put (game { deck = card : deck game })
 
+movePendingCards :: MyState ()
+movePendingCards = do
+    g@Game{..} <- S.get
+    let newPs = updPlayer
+                 (\p -> p {cards = cards p ++ pendingCards}) currentPlayer players
+    S.put(g {players = newPs, pendingCards = []})
 
 buyCard :: MyState Bool
 buyCard = do
     game@Game{..} <- S.get
     maybeCard <- drawCard
-    if isNothing maybeCard then err "no cards left to buy" else do
-        let c = currentPlayer
-            card = fromJust maybeCard
-            addCard = updPlayer (\p -> p { cards = card : cards p }) c
-            newPs = addCard $ spend [Ore, Wool, Grain] c players
-            validP = validPlayer $ getPlayer c newPs
-            update = S.put(game { players = newPs })
-        if validP then update >> return True
-            else unDrawCard card >> err "cards cost Ore, Wool and Grain"
+    case maybeCard of
+        Nothing -> err "no cards left to buy"
+        Just card -> do
+            let c = currentPlayer
+                newPs = spend [Ore, Wool, Grain] c players
+                validP = validPlayer $ getPlayer c newPs
+                update = case card of
+                    VictoryPoint -> S.put(game { players = newPs,
+                                             pendingCards = card:pendingCards })
+                    _            -> S.put(game { players =
+                            updPlayer (\p -> p{cards = card:cards p}) c newPs })
+            if validP then update >> return True
+                else unDrawCard card >> err "cards cost Ore, Wool and Grain"
 
 
 rollSevenPenalty :: MyState [Name]
@@ -310,21 +322,27 @@ stealFromOneOf :: [(Name, Color)] -> MyState()
 stealFromOneOf l = do
     game@Game{..} <- S.get
     CatanMVars{..} <- getCatanMVars
-    c <- liftIO $ putMVar requestVar (StealFrom l) >>
-                  takeMVar colorVar
+    putMVar requestVar (StealFrom l)
+    c <- takeMVar colorVar
     let resChoices = allResources $ getPlayer c players
     case resChoices of
         [] -> liftIO $ putStrLn "no resources"
         hd:_ -> S.put (game {players = recieve [hd] currentPlayer (spend [hd] c players)}) >>
                 liftIO (putStr "stole 1 " >> print hd)
 
+cheat :: [Resource] -> MyState Bool
+cheat rs = do
+    game@Game{..} <- S.get
+    S.put(game{players = recieve rs currentPlayer players})
+    return True
+
 
 moveRobber :: MyState ()
 moveRobber = do
     game@Game{..} <- S.get
     CatanMVars{..} <- getCatanMVars
-    t <- liftIO $ do putMVar requestVar MoveRobber
-                     takeMVar robberVar
+    putMVar requestVar MoveRobber
+    t <- takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put(game{robberTile = t})
     liftIO $ putMVar gameVar game{robberTile = t}
@@ -347,11 +365,13 @@ handleAction a = case a of
         TradeWithBank r1 r2 i     -> ignore $ genericTrade r1 r2 i
         TradeWithPlayer rs1 c rs2 -> ignore $ playerTrade rs1 c rs2
         EndTurn                   -> return True
+        Cheat rs                  -> ignore $ cheat rs
         EndGame                   -> error "over"
 
 
-ignore :: MonadIO m => m Bool -> m Bool
-ignore m = do
-  res <- m
-  unless res $ liftIO $ putStrLn "not successful"
-  return False
+ignore :: MyState Bool -> MyState Bool
+ignore status = do
+      Game{..} <- S.get
+      m <- status
+      unless m $ liftIO . putStrLn $ fromMaybe "invalid input" errorMessage
+      return False

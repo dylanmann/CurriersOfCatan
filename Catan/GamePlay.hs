@@ -9,7 +9,7 @@ import Control.Monad.Random(MonadRandom)
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
-import Control.Concurrent.MVar
+import Control.Concurrent.MVar.Lifted
 import Control.Concurrent(forkIO)
 import Types
 import Actions
@@ -27,7 +27,8 @@ getName c used = do
   putStr $ show c
   putStrLn " player, What is your name?"
   name <- getLine
-  if name `notElem` used then return (c, name) else getName c used
+  if name `notElem` used && ' ' `notElem` name then return (c, name)
+    else getName c used
 
 setupPlayers :: IO Players
 setupPlayers = do
@@ -42,8 +43,9 @@ initialize = do
   b <- setupBoard
   d <- shuffleM devCards
   p <- setupPlayers
+  let des = (desert b)
   return $
-   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White Nothing
+   Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing []
 
 
 advancePlayer :: MyState ()
@@ -76,17 +78,30 @@ isPlayedCard _ = False
 
 takeTurn :: Bool -> MyState ()
 takeTurn playedCard = do
-  Game{..} <- S.get
+  g@Game{..} <- S.get
   CatanMVars{..} <- getCatanMVars
-  action <- liftIO $ do
-        putMVar requestVar NextMove
-        putMVar nameVar (name (getPlayer currentPlayer players))
-        takeMVar actionVar
+  putMVar gameVar g
+  putMVar requestVar NextMove
+  putMVar nameVar (name (getPlayer currentPlayer players))
+  action <- takeMVar actionVar
   turnOver <- handleAction action
-  newG <- S.get
-  liftIO $ putMVar gameVar newG
+  resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
+resetErr :: MyState ()
+resetErr = do
+  g <- S.get
+  S.put $ g{errorMessage = Nothing}
+
+
+endTurn :: MyState (Maybe Name)
+endTurn = do
+  Game{..} <- S.get
+  movePendingCards
+  final <- gameOver
+  if final then
+    return $ Just $ name (getPlayer currentPlayer players)
+  else return Nothing
 
 playGame :: IO Name
 playGame = do
@@ -98,17 +113,14 @@ playGame = do
   _ <- ioThread Orange
   let go = do
       advancePlayer
-      Game{..} <- S.get
       takeTurn False
-      final <- gameOver
-      if final then
-        return $ name (getPlayer currentPlayer players)
-      else go
+      Game{..} <- S.get
+      winner <- endTurn
+      case winner of
+        Just w -> return w
+        Nothing -> go
   S.evalStateT go game
 
 rollDice :: MyState Int
-rollDice = do
-  let die = getRandomR (1,6)
-  roll <- liftM2 (+) die die
-  liftIO $ putStr "roll: " >> print roll
-  return roll
+rollDice = liftM2 (+) die die where
+  die = getRandomR (1,6)

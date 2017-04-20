@@ -6,6 +6,7 @@ import Control.Applicative
 import Data.Char(isSpace)
 import Data.Maybe(isJust, fromJust)
 import Control.Concurrent.MVar
+import Control.Concurrent(threadDelay)
 
 import qualified ParserCombinators as P
 import Types
@@ -76,7 +77,11 @@ tradeP :: P.Parser PlayerAction
 tradeP = P.string "trade" *> (TradeWithPlayer <$> resourcesP <*> colorP <*> resourcesP)
 
 actionP :: P.Parser PlayerAction
-actionP = P.choice [roadP, cityP, settP, cardP, playCardP, bankP, tradeP, constP "n" EndTurn, constP "q" EndGame]
+actionP = P.choice [roadP, cityP, settP, cardP, playCardP, bankP, tradeP,
+ constP "n" EndTurn, constP "q" EndGame, cheatP]
+
+cheatP :: P.Parser PlayerAction
+cheatP = P.string "$$$" *> (Cheat <$> wsP resourcesP)
 
 help :: String
 help = unlines
@@ -110,23 +115,32 @@ commandLineInput c CatanMVars{..} = --do
     -- name <- getLine
     -- putMVar nameVar name
     go where go = do
+              threadDelay 500
+              roll <- tryTakeMVar rollVar
+              case roll of
+                Just r -> putStr "roll: " >> print r
+                Nothing -> return ()
               r <- takeMVar requestVar
               case r of
-                 NextMove ->           do n <- takeMVar nameVar
+                 NextMove ->           do game <- takeMVar gameVar
+                                          print game
+                                          n <- takeMVar nameVar
                                           a <- getNextAction n
                                           putMVar actionVar a
-                                          g <- takeMVar gameVar
-                                          print g
+
                  MoveRobber ->         do tile <- promptForRobber
                                           putMVar robberVar tile
-                                          g <- takeMVar gameVar
-                                          print g
+                                          takeMVar gameVar >>= print
+
                  StealFrom ps ->       do color <- getChoiceFrom ps
                                           putMVar colorVar color
+
                  RoadBuildingChoice -> do roads <- promptForRoadBuilder c
                                           putMVar roadVar roads
+
                  YearOfPlentyChoice -> do rs <- promptForYOP
                                           putMVar yopVar rs
+
                  MonopolyChoice ->     do res <- promptForMonopoly
                                           putMVar monopolyVar res
               go

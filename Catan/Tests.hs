@@ -17,7 +17,7 @@ defaultGame = do
   d <- shuffle devCards
   p <- defaultPlayers
   return $
-   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White Nothing
+   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White Nothing []
 
 gameWithPlayer :: Color -> Player -> IO Game
 gameWithPlayer c p = do
