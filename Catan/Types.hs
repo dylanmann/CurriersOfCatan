@@ -33,6 +33,7 @@ module Types(ProgressCard(..),
              Roads,
              defaultRoads,
              newLongestRoad,
+
              Game(..),
              produces,
 
@@ -180,7 +181,8 @@ data Game = Game {board         :: Board,
                   longestRoad   :: Maybe Color,
                   largestArmy   :: Maybe Color,
                   deck          :: [DevCard],
-                  currentPlayer :: Color}
+                  currentPlayer :: Color,
+                  errorMessage  :: Maybe String}
     deriving (Read)
 
 -- lol these ended up working out well
@@ -233,8 +235,9 @@ instance Show Game where
                  "       robberTile = " ++ show robberTile ++ ",",
                  "       longestRoad = " ++ show longestRoad ++ ",",
                  "       largestArmy = " ++ show largestArmy ++ ",",
-                 "       deck = " ++ "deck" ++ ",",
-                 "       currentPlayer = " ++ show currentPlayer,
+                 "       deck = " ++ show deck ++ ",",
+                 "       currentPlayer = " ++ show currentPlayer ++ ",",
+                 "       error = " ++ show errorMessage,
                  "}"]
 
 instance Show Players where
@@ -257,7 +260,8 @@ data CatanMVars = CatanMVars{nameVar     :: MVar Name,
                              colorVar    :: MVar Color,
                              yopVar      :: MVar (Resource, Resource),
                              monopolyVar :: MVar Resource,
-                             roadVar     :: MVar (Road, Road)}
+                             roadVar     :: MVar (Road, Road),
+                             gameVar     :: MVar Game}
 
 instance Show CatanMVars where
   show _ = "CatanMVars"
@@ -274,7 +278,8 @@ makeMVars = do v1 <- newEmptyMVar
                v6 <- newEmptyMVar
                v7 <- newEmptyMVar
                v8 <- newEmptyMVar
-               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8
+               v9 <- newEmptyMVar
+               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9
 
 data Request = NextMove
              | MoveRobber

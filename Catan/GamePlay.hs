@@ -43,7 +43,7 @@ initialize = do
   d <- shuffleM devCards
   p <- setupPlayers
   return $
-   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White
+   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White Nothing
 
 
 advancePlayer :: MyState ()
@@ -76,14 +76,15 @@ isPlayedCard _ = False
 
 takeTurn :: Bool -> MyState ()
 takeTurn playedCard = do
-  g@Game{..} <- S.get
+  Game{..} <- S.get
   CatanMVars{..} <- getCatanMVars
   action <- liftIO $ do
-        print g
         putMVar requestVar NextMove
         putMVar nameVar (name (getPlayer currentPlayer players))
         takeMVar actionVar
   turnOver <- handleAction action
+  newG <- S.get
+  liftIO $ putMVar gameVar newG
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
 

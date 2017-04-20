@@ -19,12 +19,17 @@ import qualified Control.Monad.State as S
 import Control.Concurrent.MVar
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO, MonadIO)
-import Control.Monad(when, unless)
+import Control.Monad(unless)
 import Data.Maybe(fromJust, isNothing, mapMaybe)
 
 import Types
 
 type MyState = S.StateT Game IO
+
+err :: String -> MyState Bool
+err str = do g <- S.get
+             S.put (g { errorMessage = Just str })
+             return False
 
 buildingVP :: Building -> Int
 buildingVP Settlement{} = 1
@@ -76,7 +81,7 @@ buildRoad loc1 loc2 = do
                               roads = newRs,
                               longestRoad = newLongestRoad longestRoad newRs})
     if validP && newRoad && contiguous then update >> return True else
-        return False
+        err "invalid road location"
 
 buildCity :: CornerLocation -> MyState Bool
 buildCity loc = do
@@ -87,8 +92,10 @@ buildCity loc = do
         validB = Settlement c loc `elem` buildings
         newBs  = City c loc : List.delete (Settlement c loc) buildings
         update = S.put(game { players = newPs, buildings = newBs})
-    if validP && validB then update >> return True else
-        return False
+    if not validP then err "City requires 3 Ore and 2 Grain"
+    else if not validB then err "Settlement you own must exist on same tile"
+    else update >> return True
+
 
 buildSett :: CornerLocation -> MyState Bool
 buildSett cor = do
@@ -96,11 +103,14 @@ buildSett cor = do
     let c = currentPlayer
         newPs = spend [Brick, Lumber, Wool, Grain] c players
         validP = validPlayer $ getPlayer c newPs
-        validB = freeAdjacent cor buildings && connects c cor roads
+        validB = freeAdjacent cor buildings
+        validL = connects c cor roads
         newBs =  Settlement c cor : buildings
         update = S.put(game { players = newPs, buildings = newBs})
-    if validP && validB then update >> return True else
-        return False
+    if not validP then err "Settlement requires Brick, Lumber, Wool, and Grain"
+    else if not validB then err "All adjacent corners must be unbuilt"
+    else if not validL then err "Settlement must connect to existing roads"
+    else update >> return True
     where freeAdjacent = all . noTouch
           noTouch new b = new `notElem` adjacentCorners (buildingLoc b)
           connects c loc = any (overlap loc c)
@@ -108,8 +118,8 @@ buildSett cor = do
 
 playerTrade :: [Resource] -> Color -> [Resource] -> MyState Bool
 playerTrade rs1 c2 rs2
-  | not $ null $ rs1 `List.intersect` rs2 = return False
-  | null rs1 || null rs2 = return False
+  | not $ null $ rs1 `List.intersect` rs2 = err "none of the traded resources can overlap"
+  | null rs1 || null rs2 = err "Resources cannot be traded for nothing"
   | otherwise = do
     game@Game{..} <- S.get
     let c1 = currentPlayer
@@ -119,12 +129,15 @@ playerTrade rs1 c2 rs2
         validP1 = validPlayer $ getPlayer c1 newPs
         validP2 = validPlayer $ getPlayer c2 newPs
         update = S.put(game { players = newPs })
-    if validP1 && validP2 then update >> return True else return False
+    if not validP1 then err "You do not have enough resources"
+    else if not validP2 then err "Other player must have enough resources"
+    else update >> return True
 
 -- Trade resources to the bank if you have them
-tradeWithRatio :: Int -> Resource -> Resource -> Int -> MyState Int
+tradeWithRatio :: Int -> Resource -> Resource -> Int -> MyState Bool
 tradeWithRatio ratio r1 r2 amountToTrade
-  | r1 == r2 || amountToTrade < 2 = return 0
+  | r1 == r2 = err "you cannot trade for the same resource"
+  | amountToTrade < 2 = err "you did not offer enough resources"
   | otherwise = do
     game@Game{..} <- S.get
     let c = currentPlayer
@@ -135,10 +148,10 @@ tradeWithRatio ratio r1 r2 amountToTrade
         newPs   = spendRs $ getRs players
         validP  = validPlayer $ getPlayer c newPs
         update  = S.put(game { players = newPs })
-    when validP update
-    return yield
+    if not validP then err ("you do not have enough " ++ show r1)
+        else update >> return True
 
-genericTrade :: Resource -> Resource -> Int -> MyState Int
+genericTrade :: Resource -> Resource -> Int -> MyState Bool
 genericTrade r1 r2 amount = do
     Game{..} <- S.get
     let bs = filter (\b -> currentPlayer == buildingColor b) buildings
@@ -151,12 +164,12 @@ genericTrade r1 r2 amount = do
 
 -- TODO: actually make the cards do something
 playCard :: DevCard -> MyState Bool
-playCard VictoryPoint = return False
+playCard VictoryPoint = err "you cannot play a victory point card"
 playCard card = do
     game@Game{..} <- S.get
     let c = currentPlayer
         Player{..} = getPlayer c players
-    if card `notElem` cards then return False else do
+    if card `notElem` cards then err "you don't have that card" else do
         let newCards p = p{cards = List.delete card cards}
         S.put(game {players = updPlayer newCards c players})
         case card of
@@ -243,15 +256,15 @@ buyCard :: MyState Bool
 buyCard = do
     game@Game{..} <- S.get
     maybeCard <- drawCard
-    if isNothing maybeCard then return False else do
+    if isNothing maybeCard then err "no cards left to buy" else do
         let c = currentPlayer
             card = fromJust maybeCard
             addCard = updPlayer (\p -> p { cards = card : cards p }) c
             newPs = addCard $ spend [Ore, Wool, Grain] c players
             validP = validPlayer $ getPlayer c newPs
             update = S.put(game { players = newPs })
-        if validP then update else unDrawCard card
-        return validP
+        if validP then update >> return True
+            else unDrawCard card >> err "cards cost Ore, Wool and Grain"
 
 
 rollSevenPenalty :: MyState [Name]
@@ -314,6 +327,7 @@ moveRobber = do
                      takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put(game{robberTile = t})
+    liftIO $ putMVar gameVar game{robberTile = t}
     case options of
         []  -> liftIO $ putStrLn "no adjacent settlements"
         l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
@@ -325,24 +339,19 @@ moveRobber = do
 
 handleAction :: PlayerAction -> MyState Bool
 handleAction a = case a of
-        BuildRoad l1 l2           -> ignoreB $ buildRoad l1 l2
-        BuildCity l               -> ignoreB $ buildCity l
-        BuildSettlement l         -> ignoreB $ buildSett l
-        PlayCard c                -> ignoreB $ playCard c
-        BuyCard                   -> ignoreB buyCard
-        TradeWithBank r1 r2 i     -> ignoreI $ genericTrade r1 r2 i
-        TradeWithPlayer rs1 c rs2 -> ignoreB $ playerTrade rs1 c rs2
+        BuildRoad l1 l2           -> ignore $ buildRoad l1 l2
+        BuildCity l               -> ignore $ buildCity l
+        BuildSettlement l         -> ignore $ buildSett l
+        PlayCard c                -> ignore $ playCard c
+        BuyCard                   -> ignore buyCard
+        TradeWithBank r1 r2 i     -> ignore $ genericTrade r1 r2 i
+        TradeWithPlayer rs1 c rs2 -> ignore $ playerTrade rs1 c rs2
         EndTurn                   -> return True
         EndGame                   -> error "over"
 
-ignoreI :: MonadIO m => m Int -> m Bool
-ignoreI m = do
-  res <- m
-  when (res == 0) $ liftIO $ putStrLn "not successful"
-  return False
 
-ignoreB :: MonadIO m => m Bool -> m Bool
-ignoreB m = do
+ignore :: MonadIO m => m Bool -> m Bool
+ignore m = do
   res <- m
   unless res $ liftIO $ putStrLn "not successful"
   return False

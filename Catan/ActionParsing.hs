@@ -115,8 +115,12 @@ commandLineInput c CatanMVars{..} = --do
                  NextMove ->           do n <- takeMVar nameVar
                                           a <- getNextAction n
                                           putMVar actionVar a
+                                          g <- takeMVar gameVar
+                                          print g
                  MoveRobber ->         do tile <- promptForRobber
                                           putMVar robberVar tile
+                                          g <- takeMVar gameVar
+                                          print g
                  StealFrom ps ->       do color <- getChoiceFrom ps
                                           putMVar colorVar color
                  RoadBuildingChoice -> do roads <- promptForRoadBuilder c
