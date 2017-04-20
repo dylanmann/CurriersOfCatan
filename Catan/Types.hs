@@ -2,48 +2,48 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
 module Types(ProgressCard(..),
-                  DevCard(..),
-                  devCards,
+             DevCard(..),
+             devCards,
 
-                  Building(..),
-                  defaultBuildings,
-                  buildingColor,
-                  buildingLoc,
-                  buildingTileLocs,
-                  buildingTiles,
-                  Name,
+             Building(..),
+             defaultBuildings,
+             buildingColor,
+             buildingLoc,
+             buildingTileLocs,
+             buildingTiles,
+             Name,
 
-                  Resources,
-                  getResource,
-                  updResource,
-                  allResources,
-                  emptyResources,
+             Resources,
+             getResource,
+             updResource,
+             allResources,
+             emptyResources,
 
-                  Players,
-                  Player(..),
-                  Color(..),
-                  getPlayer,
-                  allPlayers,
-                  updPlayer,
-                  makePlayers,
-                  nextPlayer,
-                  validPlayer,
+             Players,
+             Player(..),
+             Color(..),
+             getPlayer,
+             allPlayers,
+             updPlayer,
+             makePlayers,
+             nextPlayer,
+             validPlayer,
 
-                  Road,
-                  Roads,
-                  defaultRoads,
-                  newLongestRoad,
-                  Game(..),
-                  produces,
+             Road,
+             Roads,
+             defaultRoads,
+             newLongestRoad,
+             Game(..),
+             produces,
 
-                  CatanMVars(..),
-                  Request(..),
-                  PlayerAction(..),
+             CatanMVars(..),
+             Request(..),
+             PlayerAction(..),
 
-                  Resource(..),
+             Resource(..),
 
-                  module Board)
-                  where
+             module Board)
+             where
 
 import qualified Data.Map as Map
 import Data.Map(Map)

@@ -2,37 +2,37 @@
 
 module Board(Terrain(..),
 
-                  Token(..),
-                  tokenOrder,
+             Token(..),
+             tokenOrder,
 
-                  Tile(..),
-                  Tiles,
-                  TileLocation,
-                  getTile,
-                  desert,
-                  makeTileLocation,
+             Tile(..),
+             Tiles,
+             TileLocation,
+             getTile,
+             desert,
+             makeTileLocation,
 
-                  Resource(..),
-                  Reward,
-                  rewardTiles,
-                  rewardLocs,
-                  Harbor(..),
-                  Neighbors(..),
+             Resource(..),
+             Reward,
+             rewardTiles,
+             rewardLocs,
+             Harbor(..),
+             Neighbors(..),
 
-                  Corner,
-                  Corners,
-                  CornerLocation,
-                  adjacentCorners,
-                  getCorner,
-                  makeCornerLocation,
-                  cornerIndices,
+             Corner,
+             Corners,
+             CornerLocation,
+             adjacentCorners,
+             getCorner,
+             makeCornerLocation,
+             cornerIndices,
 
-                  Board(..),
-                  setupBoard,
+             Board(..),
+             setupBoard,
 
-                  defaultBuildingLocations,
-                  defaultRoadLocations)
-                  where
+             defaultBuildingLocations,
+             defaultRoadLocations)
+             where
 
 import qualified Data.Map as Map
 import Data.Map(Map)

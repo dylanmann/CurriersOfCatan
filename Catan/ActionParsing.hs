@@ -1,6 +1,6 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
-module ActionParsing (ioThread) where
+module ActionParsing (commandLineInput) where
 
 import Control.Applicative
 import Data.Char(isSpace)
@@ -64,7 +64,7 @@ colorP = wsP $ P.choice [constP "Red" Red,
 
 rbP :: Color -> P.Parser (Road, Road)
 rbP c = (,) <$> (mkRoad <$> cornerP <*> cornerP) <*> (mkRoad <$> cornerP <*> cornerP)
-  where mkRoad l1 l2 = (l1, l2, c)
+    where mkRoad l1 l2 = (l1, l2, c)
 
 bankP :: P.Parser PlayerAction
 bankP = P.string "bank" *> (TradeWithBank <$> wsP resourceP <*> wsP resourceP <*> wsP P.int)
@@ -104,8 +104,8 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
-ioThread :: Color -> CatanMVars -> IO ()
-ioThread c CatanMVars{..} = --do
+commandLineInput :: Color -> CatanMVars -> IO ()
+commandLineInput c CatanMVars{..} = --do
     -- print "What is your name?: "
     -- name <- getLine
     -- putMVar nameVar name

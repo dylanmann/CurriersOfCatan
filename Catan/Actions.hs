@@ -1,17 +1,17 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 module Actions(handleAction,
-                    rollSeven,
-                    gameOver,
+               rollSeven,
+               gameOver,
 
-                    MyState,
+               MyState,
 
-                    allocateRewards,
-                    spend,
-                    recieve,
+               allocateRewards,
+               spend,
+               recieve,
 
-                    getCatanMVars
-) where
+               getCatanMVars)
+               where
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
