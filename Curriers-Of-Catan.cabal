@@ -13,7 +13,7 @@ name:                Curriers-Of-Catan
 version:             0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:            A Settlers of Catan Implementation in Haskell using StateT
+synopsis:            A Settlers of Catan Implementation in Haskell using StateT and ThreePenny
 
 -- A longer description of the package.
 -- description:

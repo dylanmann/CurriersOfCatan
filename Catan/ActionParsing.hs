@@ -117,7 +117,7 @@ prompt :: String
 prompt = " >> "
 
 
-
+-- | Returns the next action a user takes on their turn
 getNextAction :: Name -> IO PlayerAction
 getNextAction n = do
     putStr $ n ++ prompt
@@ -126,6 +126,7 @@ getNextAction n = do
         Left _ -> putStrLn help >> getNextAction n
         Right act -> return act
 
+-- | Main UI thread for the command line version of the UI
 commandLineInput :: Color -> CatanMVars -> IO ()
 commandLineInput c CatanMVars{..} = --do
     -- print "What is your name?: "

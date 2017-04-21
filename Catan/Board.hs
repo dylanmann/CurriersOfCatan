@@ -54,31 +54,34 @@ import Data.Map(Map)
 import Data.Maybe(fromJust)
 import System.Random.Shuffle(shuffleM)
 
-
+-- | Resources that are held by players and used as currency
 data Resource = Brick | Lumber | Ore | Grain | Wool
     deriving (Enum, Read, Show, Eq, Ord)
 
--- No Seven because 7 is the robber
+-- | Tokens that represent when tile payouts happen
 data Token = Two   | Three | Four | Five   | Six
            | Eight | Nine  | Ten  | Eleven | Twelve
     deriving (Enum, Read, Show, Eq)
 
---default token order, starting from top left and circling clockwise inwards
+-- | default token order, starting from top left and circling clockwise inwards
 tokenOrder :: [Token]
 tokenOrder = [Five, Two, Six, Three, Eight, Ten, Nine, Twelve, Eleven, Four,
               Eight, Ten, Nine, Four, Five, Six, Three, Eleven]
 
+-- | indices of all tiles, starting from top left and going inwards clockwise
 tileIndices :: [TileLocation]
-tileIndices = ([8..11] ++ [0..7]) `zip` repeat 2 ++
+tileIndices = map TileLocation $
+              ([8..11] ++ [0..7]) `zip` repeat 2 ++
               ([4,  5] ++ [0..3]) `zip` repeat 1 ++
               [(0, 0)]
 
---default tile order, starting from top left and circling clockwise inwards
+-- | default tile order, starting from top left and circling clockwise inwards
 terrainOrder :: [Terrain]
 terrainOrder = [Mountains, Pasture, Forest, Hills, Mountains, Pasture, Pasture,
                 Fields, Hills, Forest, Fields, Fields, Hills, Pasture, Forest,
                 Fields, Mountains, Forest]
 
+-- | represents the types of paying tiles
 data Terrain = Hills     -- produce brick
              | Forest    -- produce lumber
              | Mountains -- produce ore
@@ -86,39 +89,53 @@ data Terrain = Hills     -- produce brick
              | Pasture   -- produces Wool
     deriving (Enum, Read, Show, Eq)
 
+-- | Corner on a board, it has the neighboring tiles and whether it is adacent
+--   to any harbors
+type Corner = Reward
+type Reward = (Neighbors, Maybe Harbor)
+
+-- | Protected type can only be instantiated by makeCornerLocation outside the
+--   module
+data CornerLocation = CornerLocation (Int, Int)
+    deriving(Ord, Show, Read, Eq)
+
+-- | neighboring tiles of the corner
 data Neighbors = OneTile TileLocation
                | TwoTiles TileLocation TileLocation
                | ThreeTiles TileLocation TileLocation TileLocation
     deriving (Read, Show, Eq)
 
+-- | what type of harbor that corner has access to
 data Harbor = GenericHarbor
             | SpecialHarbor Resource
     deriving (Read, Show, Eq)
 
-type Reward = (Neighbors, Maybe Harbor)
 
-
-type Corner = Reward
-type CornerLocation = (Int, Int)
-
+-- | safe method for creating corner locations
 makeCornerLocation :: Int -> Int -> Maybe CornerLocation
 makeCornerLocation x y | x < 0 || y < 0 = Nothing
-makeCornerLocation x 0 | x < 6          = Just (x, 0)
-makeCornerLocation x 1 | x < 18         = Just (x, 1)
-makeCornerLocation x 2 | x < 30         = Just (x, 2)
+makeCornerLocation x 0 | x < 6          = Just $ CornerLocation (x, 0)
+makeCornerLocation x 1 | x < 18         = Just $ CornerLocation (x, 1)
+makeCornerLocation x 2 | x < 30         = Just $ CornerLocation (x, 2)
 makeCornerLocation _ _                  = Nothing
 
--- do we need TileLocation???
-type TileLocation = (Int, Int)
+-- | Protected type can only be instantiated by makeCornerLocation outside the
+--   module
+data TileLocation = TileLocation (Int, Int)
+    deriving(Ord, Show, Read, Eq)
+
+-- | Tile is represented either by a paying tile or the desert.  Paying tiles
+--   yield resources to neighboring players when the dice roll the token
 data Tile = Paying Terrain Token
           | Desert
         deriving (Eq, Show, Read)
 
-makeTileLocation :: Int -> Int -> Maybe CornerLocation
+-- | safe method for creating tile locations
+makeTileLocation :: Int -> Int -> Maybe TileLocation
 makeTileLocation x y | x < 0 || y < 0 = Nothing
-makeTileLocation 0 0                  = Just (0, 0)
-makeTileLocation x 1 | x < 6          = Just (x, 1)
-makeTileLocation x 2 | x < 12         = Just (x, 2)
+makeTileLocation 0 0                  = Just $ TileLocation (0, 0)
+makeTileLocation x 1 | x < 6          = Just $ TileLocation (x, 1)
+makeTileLocation x 2 | x < 12         = Just $ TileLocation (x, 2)
 makeTileLocation _ _                  = Nothing
 
 -- 30 around outside, 18 around inside, 6 around center
@@ -130,31 +147,32 @@ type Corners = Map CornerLocation Corner
 type Tiles = Map TileLocation Tile
 
 cornerIndices :: [CornerLocation]
-cornerIndices = [0.. 5] `zip` repeat 0 ++
+cornerIndices = map CornerLocation $
+                [0.. 5] `zip` repeat 0 ++
                 [0..17] `zip` repeat 1 ++
                 [0..29] `zip` repeat 2
 
 innerNeighbors :: [Neighbors]
 innerNeighbors =
   zipWith3 ThreeTiles n1 n2 n3 where
-    n1 = repeat 0     `zip` repeat 0
-    n2 = (5 : [0..4]) `zip` repeat 0
-    n3 = [0..5]       `zip` repeat 0
+    n1 = map TileLocation $ repeat 0     `zip` repeat 0
+    n2 = map TileLocation $ (5 : [0..4]) `zip` repeat 0
+    n3 = map TileLocation $ [0..5]       `zip` repeat 0
 
 middleNeighbors :: [Neighbors]
 middleNeighbors =
   zipWith3 ThreeTiles n1 n2 n3 where
-    n1 = concatMap (replicate 3) (zip [0..5] $ repeat 1)
-    n2 = take 18 $ outOutIn 0 0
-    n3 = (11 : oneThenTwo 0) `zip` repeat 2
+    n1 = map TileLocation $ concatMap (replicate 3) (zip [0..5] $ repeat 1)
+    n2 = map TileLocation $ take 18 $ outOutIn 0 0
+    n3 = map TileLocation $ (11 : oneThenTwo 0) `zip` repeat 2
     outOutIn o i = (o, 2) : (o + 1, 2) : (i, 1) : outOutIn (o + 2) (i + 1)
     oneThenTwo i = i : i + 1 : i + 1 : oneThenTwo (i + 2)
 
 outerNeighbors :: [Neighbors]
-outerNeighbors = TwoTiles (11, 2) (0, 2) : take 29 (pat 0) where
+outerNeighbors = two 11 0 : take 29 (pat 0) where
   pat x = one x : one x : two x (x + 1) : one (x + 1) : two (x + 1) (x + 2) : pat (x + 2)
-  one y = OneTile (y, 2)
-  two y1 y2 = TwoTiles (y1, 2) (y2, 2)
+  one y = OneTile (TileLocation (y, 2))
+  two y1 y2 = TwoTiles (TileLocation (y1, 2)) (TileLocation (y2, 2))
 
 neighbors :: [Neighbors]
 neighbors = innerNeighbors ++ middleNeighbors ++ outerNeighbors
@@ -202,15 +220,16 @@ getCorner (Board _ cs) c = fromJust $ Map.lookup c cs
 
 -- always x +- 1 but also sometimes need to look inwards or outwards
 adjacentCorners :: CornerLocation -> [CornerLocation]
-adjacentCorners (0, 0) = [(17, 1), (5, 0), (1,0)]
-adjacentCorners (0, 1) = [(29, 2), (5, 0), (1,0)]
-adjacentCorners (0, 2) = [(29, 2), (1, 2)]
-adjacentCorners (x, 0) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
-adjacentCorners (x, 1) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
-adjacentCorners (x, 2)
-  | (x `mod` 5) `elem` [0, 1, 3] = [(x - 1, 2), (x + 1, 2)]
-  | otherwise = [(x - 1, 2), (x + 1, 2), (x `quot` 5, 1)]
-adjacentCorners _ = error "invalid corner"
+adjacentCorners (CornerLocation c) = map CornerLocation $ adj c where
+  adj (0, 0) = [(17, 1), (5, 0), (1,0)]
+  adj (0, 1) = [(29, 2), (5, 0), (1,0)]
+  adj (0, 2) = [(29, 2), (1, 2)]
+  adj (x, 0) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
+  adj (x, 1) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
+  adj (x, 2)
+    | (x `mod` 5) `elem` [0, 1, 3] = [(x - 1, 2), (x + 1, 2)]
+    | otherwise = [(x - 1, 2), (x + 1, 2), (x `quot` 5, 1)]
+  adj _ = error "invalid corner"
 
 getTile :: Board -> TileLocation -> Tile
 getTile (Board ts _) l = fromJust $ Map.lookup l ts
@@ -222,11 +241,11 @@ desert = foldr des err . Map.toList . tiles
                  err = error "desert definitely exists"
 
 defaultBuildingLocations :: [CornerLocation]
-defaultBuildingLocations =
+defaultBuildingLocations = map CornerLocation
   [(1,1), (3, 1), (5, 1), (7,1), (9,1), (11,1), (13,1), (16,1)]
 
 
 defaultRoadLocations :: [(CornerLocation, CornerLocation)]
 defaultRoadLocations = map mkLoc
           [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11), (13, 14), (15, 16)]
-      where mkLoc (x1, x2) = ((x1, 1), (x2, 1))
+      where mkLoc (x1, x2) = (CornerLocation (x1, 1), CornerLocation (x2, 1))

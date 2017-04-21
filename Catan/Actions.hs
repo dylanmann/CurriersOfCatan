@@ -140,7 +140,7 @@ buildSett cor = do
           overlap loc c (l1, l2, c1) = c == c1 && (loc `elem` [l1, l2])
 
 -- | if both players approved already, trades one of each of rs1 from the
--- | CurrentPlayer to c2 in exchange for one of each of rs2
+--   CurrentPlayer to c2 in exchange for one of each of rs2
 playerTrade :: [Resource] -> Color -> [Resource] -> MyState Bool
 playerTrade rs1 c2 rs2
   | not $ null $ rs1 `List.intersect` rs2 = err "none of the traded resources can overlap"
@@ -337,7 +337,8 @@ getCatanMVars = do
     Game{..} <- S.get
     return $ mvars $ getPlayer Orange players
 
--- |
+-- | called after the roll in the main thread is a 7.
+--   Moves robber and penalizes players with too many resources.
 rollSeven :: MyState ()
 rollSeven = do CatanMVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
