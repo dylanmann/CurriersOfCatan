@@ -1,3 +1,18 @@
+{-|
+Module      : Catan.ActionParsing
+Description : Command line based user input thread for a game
+Copyright   : (c) Dylan Mann, David Cao 2017
+License     : GPL-3
+Maintainer  : mannd@seas.upenn.edu
+Stability   : experimental
+Portability : POSIX
+
+Module that exposes commandLineInput, a method that can be run as a thread
+alongside the playGame method in GamePlay, which takes user actions as input and
+returns them to the server thread to be processed with game logic.  Simply
+prints the Game State after each request recieved.
+-}
+
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
 module ActionParsing (commandLineInput) where
@@ -100,6 +115,8 @@ help = unlines
 
 prompt :: String
 prompt = " >> "
+
+
 
 getNextAction :: Name -> IO PlayerAction
 getNextAction n = do

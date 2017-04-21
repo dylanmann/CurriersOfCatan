@@ -1,3 +1,19 @@
+{-|
+Module      : Catan.Actions
+Description : Module for processing PlayerActions recieved by the server
+Copyright   : (c) Dylan Mann, David Cao 2017
+License     : GPL-3
+Maintainer  : mannd@seas.upenn.edu
+Stability   : experimental
+Portability : POSIX
+
+
+Handles PlayerActions received by the server.  Most important function is
+handleAction, which matches on an action and delegates to the next function.
+All functions in this module return a bool for their success, and write errors
+to the errorMessage field of the Game State record.
+-}
+
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 module Actions(handleAction,
@@ -41,10 +57,12 @@ cardVP :: DevCard -> Int
 cardVP VictoryPoint = 1
 cardVP _            = 0
 
+-- | deducts one of each resource in the list to a player's hand
 spend :: [Resource] -> Color ->  Players -> Players
 spend rs c ps = foldr step ps rs where
   step r = updPlayer (\p -> p {resources = updResource (flip (-) 1) r $ resources p}) c
 
+-- | adds one of each resource in the list to a player's hand
 recieve :: [Resource] -> Color ->  Players -> Players
 recieve rs c ps = foldr step ps rs where
   step r = updPlayer (\p -> p {resources = updResource (+1) r $ resources p}) c
@@ -57,6 +75,7 @@ rollRewards board roll robber b =
         City c _       -> (c, concatMap (replicate 2) rs)
         Settlement c _ -> (c, rs)
 
+-- | given a token, gives the proper rewards based on each player's buildings
 allocateRewards :: Token -> MyState ()
 allocateRewards roll = do
     game@Game{..} <- S.get
@@ -64,6 +83,7 @@ allocateRewards roll = do
         step (c, rs) = recieve rs c
     S.put (game {players = foldr step players rewards})
 
+-- | constructs a road at the given corner locations if valid
 buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get
@@ -85,6 +105,7 @@ buildRoad loc1 loc2 = do
     if validP && newRoad && contiguous then update >> return True else
         err "invalid road location"
 
+-- | constructs a city at the given corner locations if valid
 buildCity :: CornerLocation -> MyState Bool
 buildCity loc = do
     game@Game{..} <- S.get
@@ -98,7 +119,7 @@ buildCity loc = do
     else if not validB then err "Settlement you own must exist on same tile"
     else update >> return True
 
-
+-- | constructs a settlement at the given corner locations if valid
 buildSett :: CornerLocation -> MyState Bool
 buildSett cor = do
     game@Game{..} <- S.get
@@ -118,6 +139,8 @@ buildSett cor = do
           connects c loc = any (overlap loc c)
           overlap loc c (l1, l2, c1) = c == c1 && (loc `elem` [l1, l2])
 
+-- | if both players approved already, trades one of each of rs1 from the
+-- | CurrentPlayer to c2 in exchange for one of each of rs2
 playerTrade :: [Resource] -> Color -> [Resource] -> MyState Bool
 playerTrade rs1 c2 rs2
   | not $ null $ rs1 `List.intersect` rs2 = err "none of the traded resources can overlap"
@@ -135,7 +158,7 @@ playerTrade rs1 c2 rs2
     else if not validP2 then err "Other player must have enough resources"
     else update >> return True
 
--- Trade resources to the bank if you have them
+-- | Exchange amountToTrade resources at the given ratio
 tradeWithRatio :: Int -> Resource -> Resource -> Int -> MyState Bool
 tradeWithRatio ratio r1 r2 amountToTrade
   | r1 == r2 = err "you cannot trade for the same resource"
@@ -153,6 +176,7 @@ tradeWithRatio ratio r1 r2 amountToTrade
     if not validP then err ("you do not have enough " ++ show r1)
         else update >> return True
 
+-- | Trade resources to the bank or the best harbor you have for that resource
 genericTrade :: Resource -> Resource -> Int -> MyState Bool
 genericTrade r1 r2 amount = do
     Game{..} <- S.get
@@ -164,7 +188,7 @@ genericTrade r1 r2 amount = do
     else if Just GenericHarbor `elem` hs then trade 3
     else trade 4
 
--- TODO: actually make the cards do something
+-- | Play a card that the current player has in their hand
 playCard :: DevCard -> MyState Bool
 playCard VictoryPoint = err "you cannot play a victory point card"
 playCard card = do
@@ -180,7 +204,7 @@ playCard card = do
             VictoryPoint -> error "matched topLevel"
         return True
 
-
+-- | play a given progress card, given that it is valid
 playProgress :: ProgressCard -> MyState ()
 playProgress Monopoly = do
     CatanMVars{..} <- getCatanMVars
@@ -213,7 +237,7 @@ playProgress YearOfPlenty = do
     (r1, r2) <- takeMVar yopVar
     S.put(game{players = recieve [r1,r2] currentPlayer players})
 
-
+-- | check if a road is unique and connects to existing roads
 validRoad :: Road -> MyState Bool
 validRoad r@(_,_,c) = do
     Game{..} <- S.get
@@ -225,7 +249,7 @@ validRoad r@(_,_,c) = do
         contiguous = any (connects r) roads
     return $ unique && contiguous && c == currentPlayer
 
-
+-- | update a player's army size count and check for the largest army condition
 updateArmy :: MyState ()
 updateArmy = do
     game@Game{..} <- S.get
@@ -240,6 +264,7 @@ updateArmy = do
         Nothing   | knights currentP >= 2 -> updateLA
         _ -> updateNoLA
 
+-- | draw a card from the deck
 drawCard :: MyState (Maybe DevCard)
 drawCard = do
     game@Game{..} <- S.get
@@ -248,11 +273,13 @@ drawCard = do
       card : rest -> do S.put( game { deck = rest } )
                         return $ Just card
 
+-- | for undoing drawing a card from the deck
 unDrawCard :: DevCard -> MyState ()
 unDrawCard card = do
     game <- S.get
     S.put (game { deck = card : deck game })
 
+-- | for moving cards bought this turn to your deck at the conclusion of a player's turn
 movePendingCards :: MyState ()
 movePendingCards = do
     g@Game{..} <- S.get
@@ -260,6 +287,7 @@ movePendingCards = do
                  (\p -> p {cards = cards p ++ pendingCards}) currentPlayer players
     S.put(g {players = newPs, pendingCards = []})
 
+-- | buys a card and places it in the player's pending cards
 buyCard :: MyState Bool
 buyCard = do
     game@Game{..} <- S.get
@@ -278,7 +306,7 @@ buyCard = do
             if validP then update >> return True
                 else unDrawCard card >> err "cards cost Ore, Wool and Grain"
 
-
+-- | penalizes all players with more than 7 resources for when a 7 is rolled
 rollSevenPenalty :: MyState [Name]
 rollSevenPenalty = do
     game@Game{..} <- S.get
@@ -292,7 +320,7 @@ rollSevenPenalty = do
             ps <- mps
             return $ spend (take (length l `quot` 2) l) c ps
 
--- gameOver is current player has 10 VP (only on their turn)
+-- | checks win conditions, the game is over when the current player has 10 VP
 gameOver :: MyState Bool
 gameOver = do
     Game{..} <- S.get
@@ -309,6 +337,7 @@ getCatanMVars = do
     Game{..} <- S.get
     return $ mvars $ getPlayer Orange players
 
+-- |
 rollSeven :: MyState ()
 rollSeven = do CatanMVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
@@ -317,7 +346,8 @@ rollSeven = do CatanMVars{..} <- getCatanMVars
                     print victims
                moveRobber
 
-
+-- | method that asks the user which of the possibilities they would like to steal
+--   from in the case of a robber movement
 stealFromOneOf :: [(Name, Color)] -> MyState()
 stealFromOneOf l = do
     game@Game{..} <- S.get
@@ -330,13 +360,14 @@ stealFromOneOf l = do
         hd:_ -> S.put (game {players = recieve [hd] currentPlayer (spend [hd] c players)}) >>
                 liftIO (putStr "stole 1 " >> print hd)
 
+-- | testing method that allows the user to get free resources
 cheat :: [Resource] -> MyState Bool
 cheat rs = do
     game@Game{..} <- S.get
     S.put(game{players = recieve rs currentPlayer players})
     return True
 
-
+-- | prompts user thread for input and moves the robber to that location, with all the effects
 moveRobber :: MyState ()
 moveRobber = do
     game@Game{..} <- S.get
@@ -355,22 +386,23 @@ moveRobber = do
             then Just $ buildingColor b
             else Nothing
 
+-- | delegates the game logic for a given player action.  Returns whether the player's turn is over
 handleAction :: PlayerAction -> MyState Bool
 handleAction a = case a of
-        BuildRoad l1 l2           -> ignore $ buildRoad l1 l2
-        BuildCity l               -> ignore $ buildCity l
-        BuildSettlement l         -> ignore $ buildSett l
-        PlayCard c                -> ignore $ playCard c
-        BuyCard                   -> ignore buyCard
-        TradeWithBank r1 r2 i     -> ignore $ genericTrade r1 r2 i
-        TradeWithPlayer rs1 c rs2 -> ignore $ playerTrade rs1 c rs2
+        BuildRoad l1 l2           -> handle $ buildRoad l1 l2
+        BuildCity l               -> handle $ buildCity l
+        BuildSettlement l         -> handle $ buildSett l
+        PlayCard c                -> handle $ playCard c
+        BuyCard                   -> handle buyCard
+        TradeWithBank r1 r2 i     -> handle $ genericTrade r1 r2 i
+        TradeWithPlayer rs1 c rs2 -> handle $ playerTrade rs1 c rs2
         EndTurn                   -> return True
-        Cheat rs                  -> ignore $ cheat rs
+        Cheat rs                  -> handle $ cheat rs
         EndGame                   -> error "over"
 
 
-ignore :: MyState Bool -> MyState Bool
-ignore status = do
+handle :: MyState Bool -> MyState Bool
+handle status = do
       Game{..} <- S.get
       m <- status
       unless m $ liftIO . putStrLn $ fromMaybe "invalid input" errorMessage

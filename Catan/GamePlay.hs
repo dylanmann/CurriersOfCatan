@@ -1,3 +1,17 @@
+{-|
+Module      : Catan.GamePlay
+Description : Server/ Main module of the game
+Copyright   : (c) Dylan Mann, David Cao 2017
+License     : GPL-3
+Maintainer  : mannd@seas.upenn.edu
+Stability   : experimental
+Portability : POSIX
+
+Contains the code for setting up the game and running the main event loop.
+playGame runs the game.
+
+-}
+
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards, NamedFieldPuns #-}
 
@@ -47,7 +61,7 @@ initialize = do
   return $
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing []
 
-
+-- | rolls the dice, reacts, and changes the turn to the next player's turn
 advancePlayer :: MyState ()
 advancePlayer = do
   roll <- rollDice
@@ -77,7 +91,8 @@ isPlayedCard :: PlayerAction -> Bool
 isPlayedCard (PlayCard _) = True
 isPlayedCard _ = False
 
-
+-- | A player's turn.  Communicates with the UI thread and loops until turn is over
+-- argument is whether a card has been played so far on the turn
 takeTurn :: Bool -> MyState ()
 takeTurn playedCard = do
   g@Game{..} <- S.get
@@ -95,7 +110,7 @@ resetErr = do
   g <- S.get
   S.put $ g{errorMessage = Nothing}
 
-
+-- | cleans up after a player's turn is over
 endTurn :: MyState (Maybe Name)
 endTurn = do
   Game{..} <- S.get
@@ -105,6 +120,7 @@ endTurn = do
     return $ Just $ name (getPlayer currentPlayer players)
   else return Nothing
 
+-- Main server thread.  Sets up UI thread and plays turns until the game is over
 playGame :: IO Name
 playGame = do
   game <- liftIO initialize

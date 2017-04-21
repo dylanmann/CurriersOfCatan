@@ -1,3 +1,18 @@
+{-|
+Module      : Catan.Board
+Description : Board Types for Catan
+Copyright   : (c) Dylan Mann, David Cao 2017
+License     : GPL-3
+Maintainer  : mannd@seas.upenn.edu
+Stability   : experimental
+Portability : POSIX
+
+Contains the primitive board types and wraps unsafe operations to provide a total
+mapping from CornerLocations and Tile Locations, and so no other code has to
+touch the Board and invariants are maintained.  Also contains some setup methods.
+
+-}
+
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
 module Board(Terrain(..),

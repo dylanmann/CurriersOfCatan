@@ -1,3 +1,17 @@
+{-|
+Module      : Catan.Board
+Description : Contains all types used by the game and their methods
+Copyright   : (c) Dylan Mann, David Cao 2017
+License     : GPL-3
+Maintainer  : mannd@seas.upenn.edu
+Stability   : experimental
+Portability : POSIX
+
+This is a module where all game primitives are defined.  The game is based on a
+record that will be maintained and updated by a StateT.
+
+-}
+
 {-# LANGUAGE ConstraintKinds, RecordWildCards #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
@@ -106,7 +120,6 @@ emptyResources :: Resources
 emptyResources = Resources $ foldr (\x -> Map.insert (toEnum x) 0) Map.empty [0..4]
 
 
--- Players can change with the state
 data Player = Player {name::Name,
                       resources::Resources,
                       cards    ::[DevCard],
@@ -186,7 +199,8 @@ data Game = Game {board         :: Board,
                   pendingCards  :: [DevCard]}
     deriving (Read)
 
--- lol these ended up working out well
+-- | methods for getting and setting resources and players, in case the
+-- | implementation changes, so that the API doesn't have to
 getResource :: Resource -> Resources -> Int
 getResource r (Resources rs) = fromMaybe 0 $ Map.lookup r rs
 
@@ -265,6 +279,7 @@ data CatanMVars = CatanMVars{nameVar     :: MVar Name,
                              gameVar     :: MVar Game,
                              rollVar     :: MVar Int}
 
+-- | show and read instances so that the game can be shown
 instance Show CatanMVars where
   show _ = "CatanMVars"
 
@@ -284,6 +299,7 @@ makeMVars = do v1  <- newEmptyMVar
                v10 <- newEmptyMVar
                return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9 v10
 
+-- | requests sent to the UI thread for user input
 data Request = NextMove
              | MoveRobber
              | StealFrom [(Name, Color)]
@@ -292,6 +308,8 @@ data Request = NextMove
              | RoadBuildingChoice
              deriving(Read, Show)
 
+-- | Player Actions that can be recieved by the server from the UI thread
+-- | after a `NextMove` `Request`
 data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | BuildCity CornerLocation
                   | BuildSettlement CornerLocation
