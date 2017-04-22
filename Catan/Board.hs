@@ -25,9 +25,11 @@ module Board(Terrain(..),
              Tiles,
              TileLocation,
              tileToAxial,
+             axialToTile,
              getTile,
              tileIndices, 
              desert,
+             tileIndices,
              makeTileLocation,
 
              Resource(..),
@@ -254,26 +256,48 @@ defaultRoadLocations = map mkLoc
       where mkLoc (x1, x2) = (CornerLocation (x1, 1), CornerLocation (x2, 1))
 
 
+axialToTile :: (Int, Int) -> Maybe TileLocation
+axialToTile cl = uncurry makeTileLocation $ case cl of
+  (0,0)   -> (0,0)
+  (1,0)   -> (0,1)
+  (1,-1)  -> (1,1)
+  (0,-1)  -> (2,1)
+  (-1,0)  -> (3,1)
+  (-1,1)  -> (4,1)
+  (0, 1)  -> (5,1)
+  (2, 0)  -> (0,2)
+  (2,-1)  -> (1,2)
+  (2,-2)  -> (2,2)
+  (1,-2)  -> (3,2)
+  (0,-2)  -> (4,2)
+  (-1,-1) -> (5,2)
+  (-2,0)  -> (6,2)
+  (-2,1)  -> (7,2)
+  (-2,2)  -> (8,2)
+  (-1,2)  -> (9,2)
+  (0,2)   -> (10,2)
+  (1,1)   -> (11,2)
+  _       -> error "No other tile location can exist"
 
 tileToAxial :: TileLocation -> (Int, Int)
 tileToAxial (TileLocation cl) = case cl of
   (0,0)  -> (0,0)
-  (1,0)  -> (1,0)
+  (0,1)  -> (1,0)
   (1,1)  -> (1,-1)
-  (1,2)  -> (0,-1)
-  (1,3)  -> (-1,0)
-  (1,4)  -> (-1,1)
-  (1,5)  -> (0, 1)
-  (2,0)  -> (2, 0)
-  (2,1)  -> (2,-1)
+  (2,1)  -> (0,-1)
+  (3,1)  -> (-1,0)
+  (4,1)  -> (-1,1)
+  (5,1)  -> (0, 1)
+  (0,2)  -> (2, 0)
+  (1,2)  -> (2,-1)
   (2,2)  -> (2,-2)
-  (2,3)  -> (1,-2)
-  (2,4)  -> (0,-2)
-  (2,5)  -> (-1,-1)
-  (2,6)  -> (-2,0)
-  (2,7)  -> (-2,1)
-  (2,8)  -> (-2,2)
-  (2,9)  -> (-1,2)
-  (2,10) -> (0,2)
-  (2,11) -> (1,1)
+  (3,2)  -> (1,-2)
+  (4,2)  -> (0,-2)
+  (5,2)  -> (-1,-1)
+  (6,2)  -> (-2,0)
+  (7,2)  -> (-2,1)
+  (8,2)  -> (-2,2)
+  (9,2)  -> (-1,2)
+  (10,2) -> (0,2)
+  (11,2) -> (1,1)
   _      -> error "No other tile location can exist"
