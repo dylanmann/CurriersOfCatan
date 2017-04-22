@@ -275,3 +275,4 @@ tileToAxial (TileLocation cl) = case cl of
   (2,9)  -> (-1,2)
   (2,10) -> (0,2)
   (2,11) -> (1,1)
+  _      -> error "No other tile location can exist"
