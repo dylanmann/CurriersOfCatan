@@ -201,6 +201,7 @@ playCard card = do
         S.put(game {players = updPlayer newCards c players})
         case card of
             Knight -> updateArmy >> moveRobber
+            _ -> return ()
         return True
 
 -- | play a given progress card, given that it is valid
@@ -209,12 +210,12 @@ playMonopoly r = do
     success <- playCard $ Progress RoadBuilding
     if success then return False else do
         game@Game{..} <- S.get
-        let newPs = foldr (step r currentPlayer) players (allPlayers players)
+        let newPs = foldr (step currentPlayer) players (allPlayers players)
         S.put $ game {players = newPs}
         return True
         where
-          allR r p = filter (== r) (allResources p)
-          step r c (c2,p) = recieve (allR r p) c . spend (allR r p) c2
+          allR p = filter (== r) (allResources p)
+          step c (c2,p) = recieve (allR p) c . spend (allR p) c2
 
 playRoadBuilding :: Road -> Road -> MyState Bool
 playRoadBuilding r1 r2 = do
