@@ -24,6 +24,7 @@ module Board(Terrain(..),
              Tile(..),
              Tiles,
              TileLocation,
+             tileToAxial,
              getTile,
              desert,
              makeTileLocation,
@@ -250,3 +251,27 @@ defaultRoadLocations :: [(CornerLocation, CornerLocation)]
 defaultRoadLocations = map mkLoc
           [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11), (13, 14), (15, 16)]
       where mkLoc (x1, x2) = (CornerLocation (x1, 1), CornerLocation (x2, 1))
+
+
+
+tileToAxial :: TileLocation -> (Int, Int)
+tileToAxial (TileLocation cl) = case cl of
+  (0,0)  -> (0,0)
+  (1,0)  -> (1,0)
+  (1,1)  -> (1,-1)
+  (1,2)  -> (0,-1)
+  (1,3)  -> (-1,0)
+  (1,4)  -> (-1,1)
+  (1,5)  -> (0, 1)
+  (2,0)  -> (2, 0)
+  (2,1)  -> (2,-1)
+  (2,2)  -> (2,-2)
+  (2,3)  -> (1,-2)
+  (2,4)  -> (0,-2)
+  (2,5)  -> (-1,-1)
+  (2,6)  -> (-2,0)
+  (2,7)  -> (-2,1)
+  (2,8)  -> (-2,2)
+  (2,9)  -> (-1,2)
+  (2,10) -> (0,2)
+  (2,11) -> (1,1)
