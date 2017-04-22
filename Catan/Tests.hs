@@ -15,9 +15,10 @@ defaultGame :: IO Game
 defaultGame = do
   b <- setupBoard
   d <- shuffle devCards
-  p <- defaultPlayers
+  let p = defaultPlayers
+  m <- makeMVars
   return $
-   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White Nothing []
+   Game b p defaultRoads defaultBuildings (desert b) Nothing Nothing d White Nothing [] m
 
 gameWithPlayer :: Color -> Player -> IO Game
 gameWithPlayer c p = do
@@ -25,16 +26,12 @@ gameWithPlayer c p = do
   return $ g {players = updPlayer (const p) c (players g),
               currentPlayer = c}
 
-playerWithResources :: [Resource] -> IO Player
-playerWithResources rs = do
-  ps <- defaultPlayers
-  return $ getPlayer Red (recieve rs Red ps)
+playerWithResources :: [Resource] -> Player
+playerWithResources rs = getPlayer Red (recieve rs Red defaultPlayers)
 
-playerWithCards :: [DevCard] -> IO Player
-playerWithCards cs = do
-  ps <- defaultPlayers
-  let p = getPlayer Red ps
-  return (p { cards = cs } )
+playerWithCards :: [DevCard] -> Player
+playerWithCards cs = let p = getPlayer Red defaultPlayers in
+                     p { cards = cs }
 
 cl :: (Int, Int) -> CornerLocation
 cl = fromJust . uncurry makeCornerLocation
@@ -60,14 +57,14 @@ longestRoadT = TestList[ newLongestRoad (Just White) roads1 ~?= Just White,
 
 goTest0 :: IO Test
 goTest0 = do
-  p <- playerWithCards (replicate 10 VictoryPoint)
+  let p = playerWithCards (replicate 10 VictoryPoint)
   g <- gameWithPlayer Red p
   res <- S.evalStateT gameOver (g{currentPlayer = Red})
   return $ test $ assertBool "GameOver" res
 
 goTest1 :: IO Test
 goTest1 = do
-  p <- playerWithCards (replicate 9 VictoryPoint)
+  let p = playerWithCards (replicate 9 VictoryPoint)
   g <- gameWithPlayer Red p
   res <- S.evalStateT gameOver (g{currentPlayer = Red,
                                   buildings = []})
@@ -76,7 +73,7 @@ goTest1 = do
 goTest2 :: IO Test
 goTest2 = do
   d <- defaultGame
-  p <- playerWithResources (concat $ replicate 10 [Brick, Lumber, Wool, Grain])
+  let p = playerWithResources (concat $ replicate 10 [Brick, Lumber, Wool, Grain])
   g <- gameWithPlayer Red p
 
   let bs = mapMaybe (fmap (City Red)  . uncurry makeCornerLocation)
@@ -87,7 +84,7 @@ goTest2 = do
 goTest3 :: IO Test
 goTest3 = do
   d <- defaultGame
-  p <- playerWithResources (concat $ replicate 10 [Brick, Lumber, Wool, Grain])
+  let p = playerWithResources (concat $ replicate 10 [Brick, Lumber, Wool, Grain])
   g <- gameWithPlayer Red p
 
   let bs = mapMaybe (fmap (City Red)  . uncurry makeCornerLocation)

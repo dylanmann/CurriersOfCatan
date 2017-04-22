@@ -33,7 +33,7 @@ import ActionParsing
 main :: IO Name
 main = playGame
 
-defaultPlayers :: IO Players
+defaultPlayers :: Players
 defaultPlayers = makePlayers
   [(Blue,"blue"),(Red,"red"),(White,"white"),(Orange,"orange")]
 
@@ -51,16 +51,30 @@ setupPlayers = do
   r <- getName Red [snd b]
   w <- getName White (map snd [b, r])
   o <- getName Orange (map snd [b, r, w])
-  makePlayers [b, r, o, w]
+  return $ makePlayers [b, r, o, w]
+
+makeMVars :: IO CatanMVars
+makeMVars = do v1  <- newEmptyMVar
+               v2  <- newEmptyMVar
+               v3  <- newEmptyMVar
+               v4  <- newEmptyMVar
+               v5  <- newEmptyMVar
+               v6  <- newEmptyMVar
+               v7  <- newEmptyMVar
+               v8  <- newEmptyMVar
+               v9  <- newEmptyMVar
+               v10 <- newEmptyMVar
+               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9 v10
 
 initialize :: IO Game
 initialize = do
   b <- setupBoard
   d <- shuffleM devCards
   p <- setupPlayers
+  m <- makeMVars
   let des = (desert b)
   return $
-   Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing []
+   Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
 advancePlayer :: MyState ()
@@ -127,8 +141,8 @@ endTurn = do
 -- Main server thread.  Sets up UI thread and plays turns until the game is over
 playGame :: IO Name
 playGame = do
-  game <- liftIO initialize
-  let ioThread c = forkIO . commandLineInput c . mvars . getPlayer c $ players game
+  game@Game{..} <- liftIO initialize
+  let ioThread c = forkIO $ commandLineInput c mvars
   _ <- ioThread Red
   _ <- ioThread White
   _ <- ioThread Blue

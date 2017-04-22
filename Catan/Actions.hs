@@ -336,7 +336,7 @@ gameOver = do
 getCatanMVars :: MyState CatanMVars
 getCatanMVars = do
     Game{..} <- S.get
-    return $ mvars $ getPlayer Orange players
+    return $ mvars
 
 -- | called after the roll in the main thread is a 7.
 --   Moves robber and penalizes players with too many resources.
