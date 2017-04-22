@@ -61,10 +61,7 @@ makeMVars = do v1  <- newEmptyMVar
                v5  <- newEmptyMVar
                v6  <- newEmptyMVar
                v7  <- newEmptyMVar
-               v8  <- newEmptyMVar
-               v9  <- newEmptyMVar
-               v10 <- newEmptyMVar
-               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9 v10
+               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7
 
 initialize :: IO Game
 initialize = do
@@ -144,13 +141,12 @@ playGame = do
   game@Game{..} <- liftIO initialize
   let ioThread c = forkIO $ commandLineInput c mvars
   _ <- ioThread Red
-  _ <- ioThread White
-  _ <- ioThread Blue
-  _ <- ioThread Orange
+  -- _ <- ioThread White
+  -- _ <- ioThread Blue
+  -- _ <- ioThread Orange
   let go = do
       advancePlayer
       takeTurn False
-      Game{..} <- S.get
       winner <- endTurn
       case winner of
         Just w -> return w

@@ -271,9 +271,6 @@ data CatanMVars = CatanMVars{nameVar     :: MVar Name,
                              requestVar  :: MVar Request,
                              robberVar   :: MVar TileLocation,
                              colorVar    :: MVar Color,
-                             yopVar      :: MVar (Resource, Resource),
-                             monopolyVar :: MVar Resource,
-                             roadVar     :: MVar (Road, Road),
                              gameVar     :: MVar Game,
                              rollVar     :: MVar Int}
 

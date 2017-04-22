@@ -129,18 +129,18 @@ commandLineInput c CatanMVars{..} = --do
                 Just i -> putStr "roll: " >> print i
                 Nothing -> return ()
               case r of
-                 NextMove ->           do game <- takeMVar gameVar
-                                          print game
-                                          n <- takeMVar nameVar
-                                          a <- getNextAction n c
-                                          putMVar actionVar a
+                 NextMove ->     do game <- takeMVar gameVar
+                                    print game
+                                    n <- takeMVar nameVar
+                                    a <- getNextAction n c
+                                    putMVar actionVar a
 
-                 MoveRobber ->         do tile <- promptForRobber
-                                          putMVar robberVar tile
-                                          takeMVar gameVar >>= print
+                 MoveRobber ->   do tile <- promptForRobber
+                                    putMVar robberVar tile
+                                    takeMVar gameVar >>= print
 
-                 StealFrom ps ->       do color <- getChoiceFrom ps
-                                          putMVar colorVar color
+                 StealFrom ps -> do color <- getChoiceFrom ps
+                                    putMVar colorVar color
               go
 
 -- | Returns the next action a user takes on their turn
