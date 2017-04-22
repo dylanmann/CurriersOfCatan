@@ -3,7 +3,7 @@ module Tests where
 import Test.HUnit
 import qualified Control.Monad.State as S
 
-import Data.Maybe(mapMaybe)
+import Data.Maybe(mapMaybe, fromJust)
 
 import Board
 import Types
@@ -36,21 +36,26 @@ playerWithCards cs = do
   let p = getPlayer Red ps
   return (p { cards = cs } )
 
-roads1 :: Roads
-roads1 = [((0,0), (0,1), White), ((0,1), (0,2), White), ((0,2), (1,2), White),
-  ((2,2), (1,2), White)]
+cl :: (Int, Int) -> CornerLocation
+cl = fromJust . uncurry makeCornerLocation
 
-roads2 = [((1,0), (1,1), Red), ((1,1), (2,1), Red), ((2,1), (3,1), Red),
-  ((3,1), (4,1), Red)]
+roads1 :: Roads
+roads1 = fmap convert [((0,0), (0,1), White), ((0,1), (0,2), White),
+  ((0,2), (1,2), White), ((2,2), (1,2), White)] where
+  convert (t1, t2, c) = (cl t1, cl t2, c)
+
+roads2 = fmap convert [((1,0), (1,1), Red), ((1,1), (2,1), Red),
+  ((2,1), (3,1), Red), ((3,1), (4,1), Red)] where
+  convert (t1, t2, c) = (cl t1, cl t2, c)
+
 
 longestRoadT :: Test
 longestRoadT = TestList[ newLongestRoad (Just White) roads1 ~?= Just White,
   newLongestRoad (Just Red) roads1 ~?= (Just White),
   newLongestRoad Nothing roads1 ~?= (Just White),
-  newLongestRoad Nothing (((29,2), (0,2), Red):roads1) ~?= Nothing,
+  newLongestRoad Nothing ((cl (29,2), cl (0,2), Red):roads1) ~?= Nothing,
   newLongestRoad (Just Red) (roads1 ++ roads2) ~?= Just Red,
   newLongestRoad (Just White) (roads1 ++ roads2) ~?= Just White]
-
 
 
 goTest0 :: IO Test
@@ -74,7 +79,7 @@ goTest2 = do
   p <- playerWithResources (concat $ replicate 10 [Brick, Lumber, Wool, Grain])
   g <- gameWithPlayer Red p
 
-  let bs = mapMaybe (fmap (City Red)  . uncurry makeTileLocation)
+  let bs = mapMaybe (fmap (City Red)  . uncurry makeCornerLocation)
        [(0,0), (0,2), (2,2), (4,2), (6,2)]
   res <- S.evalStateT gameOver (g{buildings = bs})
   return $ test $ assertBool "GameOver" res
@@ -85,7 +90,7 @@ goTest3 = do
   p <- playerWithResources (concat $ replicate 10 [Brick, Lumber, Wool, Grain])
   g <- gameWithPlayer Red p
 
-  let bs = mapMaybe (fmap (City Red)  . uncurry makeTileLocation)
+  let bs = mapMaybe (fmap (City Red)  . uncurry makeCornerLocation)
        [(0,0), (0,2), (2,2), (4,2)]
   res <- S.evalStateT gameOver (g{buildings = bs})
   return $ test $ assertBool "GameOver" (not res)

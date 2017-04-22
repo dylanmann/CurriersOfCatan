@@ -13,7 +13,7 @@ handleAction, which matches on an action and delegates to the next function.
 All functions in this module return a bool for their success, and write errors
 to the errorMessage field of the Game State record.
 -}
-
+{-# OPTIONS_HADDOCK prune, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
 module Actions(handleAction,
@@ -42,6 +42,7 @@ import Data.Maybe(mapMaybe, fromMaybe)
 
 import Types
 
+-- | Monadic type used by the Server thread for maintaining state
 type MyState = S.StateT Game IO
 
 err :: String -> MyState Bool
@@ -200,42 +201,42 @@ playCard card = do
         S.put(game {players = updPlayer newCards c players})
         case card of
             Knight -> updateArmy >> moveRobber
-            Progress p -> playProgress p
-            VictoryPoint -> error "matched topLevel"
         return True
 
 -- | play a given progress card, given that it is valid
-playProgress :: ProgressCard -> MyState ()
-playProgress Monopoly = do
-    CatanMVars{..} <- getCatanMVars
-    putMVar requestVar MonopolyChoice
-    r <- takeMVar monopolyVar
-    game@Game{..} <- S.get
-    let newPs = foldr (step r currentPlayer) players (allPlayers players)
-    S.put $ game {players = newPs}
-    where
-      allR r p = filter (== r) (allResources p)
-      step r c (c2,p) = recieve (allR r p) c . spend (allR r p) c2
+playMonopoly :: Resource -> MyState Bool
+playMonopoly r = do
+    success <- playCard $ Progress RoadBuilding
+    if success then return False else do
+        game@Game{..} <- S.get
+        let newPs = foldr (step r currentPlayer) players (allPlayers players)
+        S.put $ game {players = newPs}
+        return True
+        where
+          allR r p = filter (== r) (allResources p)
+          step r c (c2,p) = recieve (allR r p) c . spend (allR r p) c2
 
-playProgress RoadBuilding = do
-    CatanMVars{..} <- getCatanMVars
-    game@Game{..} <- S.get
-    putMVar requestVar RoadBuildingChoice
-    (r1, r2) <- takeMVar roadVar
-    let newRoads = r1:r2:roads
-    v1 <- validRoad r1
-    v2 <- validRoad r2
-    if v1 && v2 then
-        S.put(game { roads = newRoads,
-                     longestRoad = newLongestRoad longestRoad newRoads})
-    else playProgress RoadBuilding
+playRoadBuilding :: Road -> Road -> MyState Bool
+playRoadBuilding r1 r2 = do
+    success <- playCard $ Progress RoadBuilding
+    if success then return False else do
+        game@Game{..} <- S.get
+        let newRoads = r1:r2:roads
+        v1 <- validRoad r1
+        v2 <- validRoad r2
+        if v1 && v2 then do
+            S.put(game { roads = newRoads,
+                         longestRoad = newLongestRoad longestRoad newRoads})
+            return True
+        else err "invalid road choices"
 
-playProgress YearOfPlenty = do
-    CatanMVars{..} <- getCatanMVars
-    game@Game{..} <- S.get
-    putMVar requestVar YearOfPlentyChoice
-    (r1, r2) <- takeMVar yopVar
-    S.put(game{players = recieve [r1,r2] currentPlayer players})
+playYearOfPlenty :: Resource -> Resource -> MyState Bool
+playYearOfPlenty r1 r2 = do
+    success <- playCard $ Progress RoadBuilding
+    if success then return False else do
+        game@Game{..} <- S.get
+        S.put(game{players = recieve [r1,r2] currentPlayer players})
+        return True
 
 -- | check if a road is unique and connects to existing roads
 validRoad :: Road -> MyState Bool
@@ -393,7 +394,10 @@ handleAction a = case a of
         BuildRoad l1 l2           -> handle $ buildRoad l1 l2
         BuildCity l               -> handle $ buildCity l
         BuildSettlement l         -> handle $ buildSett l
-        PlayCard c                -> handle $ playCard c
+        PlayMonopoly r            -> handle $ playMonopoly r
+        PlayKnight                -> handle $ playCard Knight
+        PlayYearOfPlenty r1 r2    -> handle $ playYearOfPlenty r1 r2
+        PlayRoadBuilding r1 r2    -> handle $ playRoadBuilding r1 r2
         BuyCard                   -> handle buyCard
         TradeWithBank r1 r2 i     -> handle $ genericTrade r1 r2 i
         TradeWithPlayer rs1 c rs2 -> handle $ playerTrade rs1 c rs2

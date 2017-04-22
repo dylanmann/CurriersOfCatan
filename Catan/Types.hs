@@ -11,7 +11,7 @@ This is a module where all game primitives are defined.  The game is based on a
 record that will be maintained and updated by a StateT.
 
 -}
-
+{-# OPTIONS_HADDOCK prune, show-extensions #-}
 {-# LANGUAGE ConstraintKinds, RecordWildCards #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
@@ -303,9 +303,6 @@ makeMVars = do v1  <- newEmptyMVar
 data Request = NextMove
              | MoveRobber
              | StealFrom [(Name, Color)]
-             | MonopolyChoice
-             | YearOfPlentyChoice
-             | RoadBuildingChoice
              deriving(Read, Show)
 
 -- | Player Actions that can be recieved by the server from the UI thread
@@ -313,7 +310,10 @@ data Request = NextMove
 data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | BuildCity CornerLocation
                   | BuildSettlement CornerLocation
-                  | PlayCard DevCard
+                  | PlayMonopoly Resource
+                  | PlayYearOfPlenty Resource Resource
+                  | PlayRoadBuilding Road Road
+                  | PlayKnight
                   | BuyCard
                   | TradeWithBank Resource Resource Int
                   | TradeWithPlayer [Resource] Color [Resource]

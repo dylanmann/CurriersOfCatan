@@ -8,10 +8,11 @@ Stability   : experimental
 Portability : POSIX
 
 Contains the code for setting up the game and running the main event loop.
-playGame runs the game.
+playGame runs the game.  Project was made for Advanced Programming course
+(CIS552) at Penn in the Spring 2017 semester.
 
 -}
-
+{-# OPTIONS_HADDOCK prune, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards, NamedFieldPuns #-}
 
@@ -88,8 +89,11 @@ shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM
 
 isPlayedCard :: PlayerAction -> Bool
-isPlayedCard (PlayCard _) = True
-isPlayedCard _ = False
+isPlayedCard (PlayMonopoly _)       = True
+isPlayedCard PlayKnight             = True
+isPlayedCard (PlayYearOfPlenty _ _) = True
+isPlayedCard (PlayRoadBuilding _ _) = True
+isPlayedCard _                      = False
 
 -- | A player's turn.  Communicates with the UI thread and loops until turn is over
 -- argument is whether a card has been played so far on the turn
