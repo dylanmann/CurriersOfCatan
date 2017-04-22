@@ -13,6 +13,7 @@ returns them to the server thread to be processed with game logic.  Simply
 prints the Game State after each request recieved.
 -}
 
+{-# OPTIONS_HADDOCK prune, ignore-exports, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
 module ActionParsing (commandLineInput) where
@@ -54,16 +55,14 @@ settP = P.string "sett" *> (BuildSettlement <$> cornerP)
 cardP :: P.Parser PlayerAction
 cardP = constP "card" BuyCard
 
-progressP :: P.Parser ProgressCard
-progressP = P.choice [constP "Monopoly" Monopoly,
-                      constP "YearOfPlenty" YearOfPlenty,
-                      constP "RoadBuilding" RoadBuilding]
-devP :: P.Parser DevCard
-devP = wsP $ P.choice [Progress <$> wsP progressP,
-                       constP "Knight" Knight]
+devP :: Color -> P.Parser PlayerAction
+devP c = wsP $ P.choice [constP "Monopoly" PlayMonopoly <*> resourceP,
+                       constP "YearOfPlenty" PlayYearOfPlenty <*> wsP resourceP <*> wsP resourceP,
+                       constP "Monopoly" (uncurry PlayRoadBuilding) <*> wsP (rbP c),
+                       constP "Knight" PlayKnight]
 
-playCardP :: P.Parser PlayerAction
-playCardP = wsP $ P.string "play" *> (PlayCard <$> devP)
+playCardP :: Color -> P.Parser PlayerAction
+playCardP c = wsP $ P.string "play " *> devP c
 
 resourceP :: P.Parser Resource
 resourceP = wsP $ P.choice [constP "Wool" Wool,
@@ -91,8 +90,8 @@ resourcesP = resourceP `P.sepBy` many (P.satisfy isSpace)
 tradeP :: P.Parser PlayerAction
 tradeP = P.string "trade" *> (TradeWithPlayer <$> resourcesP <*> colorP <*> resourcesP)
 
-actionP :: P.Parser PlayerAction
-actionP = P.choice [roadP, cityP, settP, cardP, playCardP, bankP, tradeP,
+actionP :: Color -> P.Parser PlayerAction
+actionP c = P.choice [roadP, cityP, settP, cardP, playCardP c, bankP, tradeP,
  constP "n" EndTurn, constP "q" EndGame, cheatP]
 
 cheatP :: P.Parser PlayerAction
@@ -116,16 +115,6 @@ help = unlines
 prompt :: String
 prompt = " >> "
 
-
--- | Returns the next action a user takes on their turn
-getNextAction :: Name -> IO PlayerAction
-getNextAction n = do
-    putStr $ n ++ prompt
-    action <- getLine
-    case P.parse actionP action of
-        Left _ -> putStrLn help >> getNextAction n
-        Right act -> return act
-
 -- | Main UI thread for the command line version of the UI
 commandLineInput :: Color -> CatanMVars -> IO ()
 commandLineInput c CatanMVars{..} = --do
@@ -143,7 +132,7 @@ commandLineInput c CatanMVars{..} = --do
                  NextMove ->           do game <- takeMVar gameVar
                                           print game
                                           n <- takeMVar nameVar
-                                          a <- getNextAction n
+                                          a <- getNextAction n c
                                           putMVar actionVar a
 
                  MoveRobber ->         do tile <- promptForRobber
@@ -152,16 +141,16 @@ commandLineInput c CatanMVars{..} = --do
 
                  StealFrom ps ->       do color <- getChoiceFrom ps
                                           putMVar colorVar color
-
-                 RoadBuildingChoice -> do roads <- promptForRoadBuilder c
-                                          putMVar roadVar roads
-
-                 YearOfPlentyChoice -> do rs <- promptForYOP
-                                          putMVar yopVar rs
-
-                 MonopolyChoice ->     do res <- promptForMonopoly
-                                          putMVar monopolyVar res
               go
+
+-- | Returns the next action a user takes on their turn
+getNextAction :: Name -> Color -> IO PlayerAction
+getNextAction n c = do
+    putStr $ n ++ prompt
+    action <- getLine
+    case P.parse (actionP c) action of
+        Left _ -> putStrLn help >> getNextAction n c
+        Right act -> return act
 
 promptForRobber :: IO TileLocation
 promptForRobber = do
@@ -171,32 +160,32 @@ promptForRobber = do
         Left _ -> putStrLn "invalid location" >> promptForRobber
         Right tile -> return tile
 
-promptForMonopoly :: IO Resource
-promptForMonopoly = do
-    putStrLn "What resource do you want to monopolize?"
-    putStr prompt
-    action <- getLine
-    case P.parse resourceP action of
-        Left _ -> putStrLn "invalid resource" >> promptForMonopoly
-        Right r -> return r
+-- promptForMonopoly :: IO Resource
+-- promptForMonopoly = do
+--     putStrLn "What resource do you want to monopolize?"
+--     putStr prompt
+--     action <- getLine
+--     case P.parse resourceP action of
+--         Left _ -> putStrLn "invalid resource" >> promptForMonopoly
+--         Right r -> return r
 
-promptForYOP :: IO (Resource, Resource)
-promptForYOP = do
-    putStrLn "Which two resources do you want?"
-    putStr prompt
-    action <- getLine
-    case P.parse resourcesP action of
-        Right [r1, r2] -> return (r1, r2)
-        _ -> putStrLn "must be two resources" >> promptForYOP
+-- promptForYOP :: IO (Resource, Resource)
+-- promptForYOP = do
+--     putStrLn "Which two resources do you want?"
+--     putStr prompt
+--     action <- getLine
+--     case P.parse resourcesP action of
+--         Right [r1, r2] -> return (r1, r2)
+--         _ -> putStrLn "must be two resources" >> promptForYOP
 
-promptForRoadBuilder :: Color -> IO (Road, Road)
-promptForRoadBuilder c = do
-    putStrLn "where do you want to build two roads?"
-    putStr prompt
-    action <- getLine
-    case P.parse (rbP c) action of
-        Left _ -> putStrLn "invalid roads" >> promptForRoadBuilder c
-        Right rs -> return rs
+-- promptForRoadBuilder :: Color -> IO (Road, Road)
+-- promptForRoadBuilder c = do
+--     putStrLn "where do you want to build two roads?"
+--     putStr prompt
+--     action <- getLine
+--     case P.parse (rbP c) action of
+--         Left _ -> putStrLn "invalid roads" >> promptForRoadBuilder c
+--         Right rs -> return rs
 
 getChoiceFrom :: [(Name, Color)] -> IO Color
 getChoiceFrom l = do putStr "options to steal from: "

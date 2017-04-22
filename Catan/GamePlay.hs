@@ -8,10 +8,11 @@ Stability   : experimental
 Portability : POSIX
 
 Contains the code for setting up the game and running the main event loop.
-playGame runs the game.
+playGame runs the game.  Project was made for Advanced Programming course
+(CIS552) at Penn in the Spring 2017 semester.
 
 -}
-
+{-# OPTIONS_HADDOCK prune, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards, NamedFieldPuns #-}
 
@@ -32,7 +33,7 @@ import ActionParsing
 main :: IO Name
 main = playGame
 
-defaultPlayers :: IO Players
+defaultPlayers :: Players
 defaultPlayers = makePlayers
   [(Blue,"blue"),(Red,"red"),(White,"white"),(Orange,"orange")]
 
@@ -50,16 +51,30 @@ setupPlayers = do
   r <- getName Red [snd b]
   w <- getName White (map snd [b, r])
   o <- getName Orange (map snd [b, r, w])
-  makePlayers [b, r, o, w]
+  return $ makePlayers [b, r, o, w]
+
+makeMVars :: IO CatanMVars
+makeMVars = do v1  <- newEmptyMVar
+               v2  <- newEmptyMVar
+               v3  <- newEmptyMVar
+               v4  <- newEmptyMVar
+               v5  <- newEmptyMVar
+               v6  <- newEmptyMVar
+               v7  <- newEmptyMVar
+               v8  <- newEmptyMVar
+               v9  <- newEmptyMVar
+               v10 <- newEmptyMVar
+               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9 v10
 
 initialize :: IO Game
 initialize = do
   b <- setupBoard
   d <- shuffleM devCards
   p <- setupPlayers
+  m <- makeMVars
   let des = (desert b)
   return $
-   Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing []
+   Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
 advancePlayer :: MyState ()
@@ -88,8 +103,11 @@ shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM
 
 isPlayedCard :: PlayerAction -> Bool
-isPlayedCard (PlayCard _) = True
-isPlayedCard _ = False
+isPlayedCard (PlayMonopoly _)       = True
+isPlayedCard PlayKnight             = True
+isPlayedCard (PlayYearOfPlenty _ _) = True
+isPlayedCard (PlayRoadBuilding _ _) = True
+isPlayedCard _                      = False
 
 -- | A player's turn.  Communicates with the UI thread and loops until turn is over
 -- argument is whether a card has been played so far on the turn
@@ -123,8 +141,8 @@ endTurn = do
 -- Main server thread.  Sets up UI thread and plays turns until the game is over
 playGame :: IO Name
 playGame = do
-  game <- liftIO initialize
-  let ioThread c = forkIO . commandLineInput c . mvars . getPlayer c $ players game
+  game@Game{..} <- liftIO initialize
+  let ioThread c = forkIO $ commandLineInput c mvars
   _ <- ioThread Red
   _ <- ioThread White
   _ <- ioThread Blue

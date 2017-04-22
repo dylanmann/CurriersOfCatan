@@ -11,7 +11,7 @@ This is a module where all game primitives are defined.  The game is based on a
 record that will be maintained and updated by a StateT.
 
 -}
-
+{-# OPTIONS_HADDOCK prune, show-extensions #-}
 {-# LANGUAGE ConstraintKinds, RecordWildCards #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
@@ -123,19 +123,16 @@ emptyResources = Resources $ foldr (\x -> Map.insert (toEnum x) 0) Map.empty [0.
 data Player = Player {name::Name,
                       resources::Resources,
                       cards    ::[DevCard],
-                      mvars    ::CatanMVars,
                       knights  :: Int}
     deriving (Read)
 
-newPlayer :: Name -> IO Player
-newPlayer n = do m <- makeMVars
-                 return $ Player n emptyResources [] m 0
+newPlayer :: Name -> Player
+newPlayer n = Player n emptyResources [] 0
 
-makePlayers :: [(Color,Name)] -> IO Players
-makePlayers l = fmap Players (foldr add (return Map.empty) l)
-    where add (c, n) mm = do m <- mm
-                             p <- newPlayer n
-                             return $ Map.insert c p m
+makePlayers :: [(Color,Name)] -> Players
+makePlayers l = Players (foldr add Map.empty l)
+    where add (c, n) m = let p = newPlayer n in
+                         Map.insert c p m
 
 data Players = Players (Map Color Player)
   deriving (Read)
@@ -196,7 +193,8 @@ data Game = Game {board         :: Board,
                   deck          :: [DevCard],
                   currentPlayer :: Color,
                   errorMessage  :: Maybe String,
-                  pendingCards  :: [DevCard]}
+                  pendingCards  :: [DevCard],
+                  mvars         :: CatanMVars}
     deriving (Read)
 
 -- | methods for getting and setting resources and players, in case the
@@ -286,26 +284,10 @@ instance Show CatanMVars where
 instance Read CatanMVars where
   readsPrec _ = undefined
 
-makeMVars :: IO CatanMVars
-makeMVars = do v1  <- newEmptyMVar
-               v2  <- newEmptyMVar
-               v3  <- newEmptyMVar
-               v4  <- newEmptyMVar
-               v5  <- newEmptyMVar
-               v6  <- newEmptyMVar
-               v7  <- newEmptyMVar
-               v8  <- newEmptyMVar
-               v9  <- newEmptyMVar
-               v10 <- newEmptyMVar
-               return $ CatanMVars v1 v2 v3 v4 v5 v6 v7 v8 v9 v10
-
 -- | requests sent to the UI thread for user input
 data Request = NextMove
              | MoveRobber
              | StealFrom [(Name, Color)]
-             | MonopolyChoice
-             | YearOfPlentyChoice
-             | RoadBuildingChoice
              deriving(Read, Show)
 
 -- | Player Actions that can be recieved by the server from the UI thread
@@ -313,7 +295,10 @@ data Request = NextMove
 data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | BuildCity CornerLocation
                   | BuildSettlement CornerLocation
-                  | PlayCard DevCard
+                  | PlayMonopoly Resource
+                  | PlayYearOfPlenty Resource Resource
+                  | PlayRoadBuilding Road Road
+                  | PlayKnight
                   | BuyCard
                   | TradeWithBank Resource Resource Int
                   | TradeWithPlayer [Resource] Color [Resource]
