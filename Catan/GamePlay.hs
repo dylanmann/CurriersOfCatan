@@ -18,6 +18,7 @@ playGame runs the game.  Project was made for Advanced Programming course
 
 module GamePlay where
 
+import CatanGUI 
 import Control.Monad (liftM2, unless)
 import Control.Monad.Random.Class(getRandomR)
 import Control.Monad.Random(MonadRandom)
@@ -116,6 +117,7 @@ takeTurn playedCard = do
   putMVar requestVar NextMove
   putMVar nameVar (name (getPlayer currentPlayer players))
   action <- takeMVar actionVar
+  liftIO $ print action
   turnOver <- handleAction action
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
@@ -138,9 +140,11 @@ endTurn = do
 -- Main server thread.  Sets up UI thread and plays turns until the game is over
 playGame :: IO Name
 playGame = do
-  game@Game{..} <- liftIO initialize
-  let ioThread c = forkIO $ commandLineInput c mvars
-  _ <- ioThread Red
+  game <- liftIO initialize
+  let guiThread = forkIO $ beginGUI game
+  -- let ioThread c = forkIO $ commandLineInput c mvars
+  _ <- guiThread
+  -- _ <- ioThread Red
   -- _ <- ioThread White
   -- _ <- ioThread Blue
   -- _ <- ioThread Orange

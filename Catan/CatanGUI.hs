@@ -1,5 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
+module CatanGUI (beginGUI) where
+
 import           Control.Monad                      (void)
 
 import           Types
@@ -14,6 +16,11 @@ import Control.Concurrent(threadDelay)
     SVG
 ------------------------------------------------------------------------------}
 data WindowSize = WindowSize {x :: Int, y :: Int}
+-- hexSize :: Int 
+hexSize = 60
+
+beginGUI :: Game -> IO ()
+beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
 
 mkButton :: String -> UI (Element, Element)
 mkButton title = do
@@ -21,8 +28,9 @@ mkButton title = do
   view   <- UI.p #+ [element button]
   return (button, view)
 
-setup :: CatanMVars -> Window -> UI ()
-setup game w = void $ do
+setup :: Game -> Window -> UI ()
+setup game@Game{..} w = void $ do
+  let CatanMVars{..} = mvars
   return w # set title "Settlers of Catan"
 
   heading <- UI.h1 # set text "Settlers of Catan"
@@ -32,8 +40,9 @@ setup game w = void $ do
     liftIO $ endTurn game
 
   getBody w #+ [element heading
-               , UI.div #+ [svgElems, UI.h3 # set text "lol"]
+               , UI.div #+ [element endturnview, svgElems, UI.h3 # set text "lol"]
                , UI.div # set html strCircle #+ [UI.h3 # set text "fuck dylan"]
+               , UI.div #+ [background game]
                ]
 
 svgElems :: UI Element
@@ -60,11 +69,42 @@ strCircle = "<svg width=\"150\" height=\"100\">"
          ++ "  <circle cx=\"100\" cy=\"50\" r=\"40\" stroke=\"gray\" stroke-width=\"4\" fill=\"orange\" />"
          ++ "</svg>"
 
-endTurn CatanMVars{..} = do
+background :: Game -> UI Element
+background game = do
+  let height = 10 * hexSize  
+  bg <- SVG.svg
+    # set SVG.width "2000"
+    # set SVG.height "2000"
+  let hexes = map drawHex (take 1 tileIndices)
+  return bg #+ hexes
+
+  where 
+    drawHex index = do 
+      let (x,y) = hexToPixel $ tileToAxial index 
+      hex <- SVG.circle
+        # set SVG.cx (show x)
+        # set SVG.cy (show y)
+        # set SVG.r (show hexSize)
+        # set SVG.stroke "black"
+        # set SVG.stroke_width "1"
+        # set SVG.fill "blue"
+      element hex 
+
+-- hexToPixel :: (Integral t1, Integral t) => (Double, Double) -> (t, t1)
+hexToPixel (q1, r1) = 
+    let q = fromIntegral q1
+        r = fromIntegral r1 
+        x = hexSize * (q + r/2.0) * sqrt 3
+        y = hexSize * 3.0/2.0 * r in
+    ((round x) + 1000, (round y) + 1000)
+
+endTurn game@Game{..} = do
+  let CatanMVars{..} = mvars 
   r <- takeMVar requestVar
   case r of
     NextMove -> do 
       game <- takeMVar gameVar
+      _ <- takeMVar nameVar
       putMVar actionVar EndTurn
       -- check if robber needs to be moved here
       -- render new game here

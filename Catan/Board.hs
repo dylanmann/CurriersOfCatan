@@ -26,6 +26,7 @@ module Board(Terrain(..),
              TileLocation,
              tileToAxial,
              getTile,
+             tileIndices, 
              desert,
              makeTileLocation,
 
