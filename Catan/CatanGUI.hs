@@ -17,7 +17,7 @@ import Control.Concurrent(threadDelay)
 ------------------------------------------------------------------------------}
 data WindowSize = WindowSize {x :: Int, y :: Int}
 hexSize :: Num a => a
-hexSize = 90
+hexSize = 80
 
 beginGUI :: Game -> IO ()
 beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
@@ -31,62 +31,50 @@ mkButton title = do
 setup :: Game -> Window -> UI ()
 setup game@Game{..} w = void $ do
   let CatanMVars{..} = mvars
-  return w # set title "Settlers of Catan"
+  return w # set title "Curriers of Catan"
 
-  heading <- UI.h1 # set text "Settlers of Catan"
+  heading <- UI.h1 # set text "Curriers of Catan"
 
   (endturnbutton, endturnview) <- mkButton "End Turn"
-  on UI.click endturnbutton $ \_ -> do
-    liftIO $ endTurn game
+  on UI.click endturnbutton $ \_ -> liftIO $ endTurn game
 
   getBody w #+ [element heading
-               , UI.div #+ [element endturnview, svgElems, UI.h3 # set text "lol"]
-               , UI.div # set html strCircle #+ [UI.h3 # set text "fuck dylan"]
                , UI.div #+ [background game]
                ]
 
-svgElems :: UI Element
-svgElems = do
-  context <- SVG.svg
-    # set SVG.width "400"
-    # set SVG.height "400"
-  elemCircle <- SVG.polygon
-    # set SVG.class_ "hex"
-    # set SVG.points (hexPoints 50 50)
-    # set SVG.stroke "green"
-    # set SVG.stroke_width "4"
-    # set SVG.fill "yellow"
-  on UI.hover elemCircle $ const $
-    element elemCircle # set SVG.fill "blue"
-  on UI.leave elemCircle $ const $
-    element elemCircle # set SVG.fill "yellow"
-  return context #+ [element elemCircle]
-
-
-hexPoints x1 y1 =
+hexPoints x1 y1 r1 =
   unwords (map hexCorner [0..5])
   where hexCorner i =
          let x = fromIntegral x1
              y = fromIntegral y1
+             r = fromIntegral r1
              angle_deg = 60 * i + 30
              angle_rad = pi / 180 * angle_deg in
-         show (x + 90 * (cos angle_rad)) ++ "," ++ show (y + 90 * (sin angle_rad))
+         show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
 
 
-strCircle :: String
-strCircle = "<svg width=\"150\" height=\"100\">"
-         ++ "  <circle cx=\"100\" cy=\"50\" r=\"40\" stroke=\"gray\" stroke-width=\"4\" fill=\"orange\" />"
-         ++ "</svg>"
+flatHexPoints x1 y1 r1 =
+  unwords (map hexCorner [0..5])
+  where hexCorner i =
+         let x = fromIntegral x1
+             y = fromIntegral y1
+             r = fromIntegral r1
+             angle_deg = 60 * i
+             angle_rad = pi / 180 * angle_deg in
+         show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
+
 
 background :: Game -> UI Element
 background game = do
-  let height = 10 * hexSize
+  let height = 12 * hexSize :: Integer
   context <- SVG.svg
     # set SVG.width (show height)
     # set SVG.height (show height)
-  bg <- SVG.rect
-    # set SVG.width (show height)
-    # set SVG.height (show height)
+  bg <- SVG.polygon
+    # set SVG.class_ "hex"
+    # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
+    # set SVG.stroke "black"
+    # set SVG.stroke_width "1"
     # set SVG.fill "rgb(129,207,224)"
   let hexes = map drawHex tileIndices
   return context #+ ((element bg) : hexes)
@@ -99,23 +87,23 @@ background game = do
       context <- SVG.g
       hex <- SVG.polygon
         # set SVG.class_ "hex"
-        # set SVG.points (hexPoints (x + 5 * 90) (y + 5 * 90))
+        # set SVG.points (hexPoints (x + 6 * 80) (y + 6 * 80) 80)
         # set SVG.stroke "black"
         # set SVG.stroke_width "1"
         # set SVG.fill color
       if token == "" then return context #+ [element hex] else do
         circ <- SVG.circle
           # set SVG.r "30"
-          # set SVG.cx (show (x + 5 * 90))
-          # set SVG.cy (show (y + 5 * 90))
+          # set SVG.cx (show (x + 6 * 80))
+          # set SVG.cy (show (y + 6 * 80))
           # set SVG.stroke "black"
           # set SVG.stroke_width "1"
           # set SVG.fill "rgb(228, 241, 254)"
         t <- SVG.text
           # set SVG.text_anchor "middle"
           # set SVG.alignment_baseline "central"
-          # set SVG.x (show (x + 5 * 90))
-          # set SVG.y (show (y + 5 * 90))
+          # set SVG.x (show (x + 6 * 80))
+          # set SVG.y (show (y + 6 * 80))
           # set SVG.font_size "35"
           # set SVG.font_family "Verdana"
           # set text token
