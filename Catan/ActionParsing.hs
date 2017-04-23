@@ -78,8 +78,10 @@ colorP = wsP $ P.choice [constP "Red" Red,
                    constP "Orange" Orange]
 
 rbP :: Color -> P.Parser (Road, Road)
-rbP c = (,) <$> (mkRoad <$> cornerP <*> cornerP) <*> (mkRoad <$> cornerP <*> cornerP)
-    where mkRoad l1 l2 = (l1, l2, c)
+rbP c = liftA2 (,)
+        (maybeP $ mr <$> cornerP <*> cornerP)
+        (maybeP $ mr <$> cornerP <*> cornerP)
+    where mr l1 l2 = mkRoad (l1, l2, c)
 
 bankP :: P.Parser PlayerAction
 bankP = P.string "bank" *> (TradeWithBank <$> wsP resourceP <*> wsP resourceP <*> wsP P.int)

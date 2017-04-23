@@ -28,6 +28,7 @@ module Types(ProgressCard(..),
              Name,
 
              Resources,
+             produces,
              getResource,
              updResource,
              allResources,
@@ -45,17 +46,16 @@ module Types(ProgressCard(..),
 
              Road,
              Roads,
+             mkRoad,
+             getRoad,
              defaultRoads,
              newLongestRoad,
 
              Game(..),
-             produces,
 
              CatanMVars(..),
              Request(..),
              PlayerAction(..),
-
-             Resource(..),
 
              module Board)
              where
@@ -71,7 +71,15 @@ import Control.Concurrent.MVar.Lifted
 data Color = Blue | Red | Orange | White
     deriving (Enum, Read, Show, Eq, Ord)
 
-type Road = (CornerLocation, CornerLocation, Color)
+data Road = Road (CornerLocation, CornerLocation, Color)
+  deriving(Read, Show, Eq)
+
+mkRoad :: (CornerLocation, CornerLocation, Color) -> Maybe Road
+mkRoad r@(cl1, cl2, _) = if cl1 `elem` adjacentCorners cl2 then
+  Just (Road r) else Nothing
+
+getRoad :: Road -> (CornerLocation, CornerLocation, Color)
+getRoad (Road r) = r
 
 type Roads = [Road]
 
@@ -140,15 +148,15 @@ data Players = Players (Map Color Player)
 edges :: Color -> CornerLocation -> Roads -> [CornerLocation]
 edges c l = foldr step []
   where step :: Road -> [CornerLocation] -> [CornerLocation]
-        step (l1, l2, c1) acc | c == c1 && l1 == l = l2 : acc
-        step (l1, l2, c1) acc | c == c1 && l2 == l = l1 : acc
+        step (Road (l1, l2, c1)) acc | c == c1 && l1 == l = l2 : acc
+        step (Road (l1, l2, c1)) acc | c == c1 && l2 == l = l1 : acc
         step _ acc                                 = acc
 
 uninterruptedLength :: Color -> Roads -> [CornerLocation] -> Int
 uninterruptedLength _ _ [] = 0
 uninterruptedLength c r (x:xs) | stop x = 1
                                | otherwise = 1 + uninterruptedLength c r xs
-  where stop hd = any (\(l1, l2, c1) -> c1 /= c && (l1 == hd || l2 == hd)) r
+  where stop hd = any (\(Road (l1, l2, c1)) -> c1 /= c && (l1 == hd || l2 == hd)) r
 
 
 longestPathFrom :: Roads -> Color -> CornerLocation -> CornerLocation -> [CornerLocation]
@@ -160,7 +168,7 @@ longestPathFrom = aux [] where
       maximumBy (comparing $ uninterruptedLength c roads) $
                 []:[start : aux (start : seen) roads c e end |
                       e <- edges c start roads, e `notElem` seen]
-      where notIn = all (\(l1, l2, c1) -> c1 /= c || (l1 /= start && l2 /= start
+      where notIn = all (\(Road (l1, l2, c1)) -> c1 /= c || (l1 /= start && l2 /= start
                                                       && l1 /= end && l2 /= end)) roads
 
 
@@ -178,7 +186,7 @@ newLongestRoad oldWinner roads =
     Nothing | snd longest >= 5 -> Just $ fst longest
     Just c  | snd longest > Map.findWithDefault 0 c lengths -> Just $ fst longest
     m -> m
-  where colors = List.nub (map (\(_,_,c) -> c) roads)
+  where colors = List.nub (map (\(Road (_,_,c)) -> c) roads)
 
 
 -- Game is going to be updated via the State monad throughout the
@@ -237,7 +245,7 @@ defaultBuildings :: [Building]
 defaultBuildings = zipWith Settlement defaultColorOrder defaultBuildingLocations
 
 defaultRoads :: Roads
-defaultRoads = (uncurry zip3) (unzip defaultRoadLocations) defaultColorOrder
+defaultRoads = map Road $ (uncurry zip3) (unzip defaultRoadLocations) defaultColorOrder
 
 instance Show Game where
   show Game{..} = unlines

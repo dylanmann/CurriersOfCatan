@@ -89,22 +89,24 @@ buildRoad :: CornerLocation -> CornerLocation -> MyState Bool
 buildRoad loc1 loc2 = do
     game@Game{..} <- S.get
     let c = currentPlayer
-        connects (l1,l2,c1) | c == c1 =
-          not . null $ [loc1, loc2] `List.intersect` [l1, l2]
-        connects _ = False
+        connects r = let (l1,l2,c1) = getRoad r in c1 == c &&
+          (not . null $ [loc1, loc2] `List.intersect` [l1, l2])
         containsRoad new1 new2 = any sameRoad where
-            sameRoad (old1, old2, _) = (old1 == new1 && old2 == new2) ||
+            sameRoad r = let (old1, old2, _) = getRoad r in
+                             (old1 == new1 && old2 == new2) ||
                              (old2 == new1 && old1 == new2)
         newPs = spend [Lumber, Brick] c players
         validP = validPlayer $ getPlayer c newPs
         newRoad = not $ containsRoad loc1 loc2 roads
         contiguous = any connects roads
-        newRs =  (loc1, loc2, c) : roads
-        update = S.put(game { players = newPs,
-                              roads = newRs,
-                              longestRoad = newLongestRoad longestRoad newRs})
-    if validP && newRoad && contiguous then update >> return True else
-        err "invalid road location"
+    case mkRoad (loc1, loc2, c) of
+            Nothing -> err "locations must be adjacent"
+            Just r -> do let newRs = r:roads
+                             update = S.put(game { players = newPs,
+                                                roads = newRs,
+                                                longestRoad = newLongestRoad longestRoad newRs})
+                         if validP && newRoad && contiguous then update >> return True else
+                             err "invalid road location"
 
 -- | constructs a city at the given corner locations if valid
 buildCity :: CornerLocation -> MyState Bool
@@ -138,7 +140,8 @@ buildSett cor = do
     where freeAdjacent = all . noTouch
           noTouch new b = new `notElem` adjacentCorners (buildingLoc b)
           connects c loc = any (overlap loc c)
-          overlap loc c (l1, l2, c1) = c == c1 && (loc `elem` [l1, l2])
+          overlap loc c r = let (l1, l2, c1) = getRoad r in
+                            c == c1 && (loc `elem` [l1, l2])
 
 -- | if both players approved already, trades one of each of rs1 from the
 --   CurrentPlayer to c2 in exchange for one of each of rs2
@@ -241,12 +244,15 @@ playYearOfPlenty r1 r2 = do
 
 -- | check if a road is unique and connects to existing roads
 validRoad :: Road -> MyState Bool
-validRoad r@(_,_,c) = do
+validRoad r = do
     Game{..} <- S.get
-    let connects (l1,l2,c1) (r1, r2, c2) = c1 == c2 &&
-          (not . null $ [l1, l2] `List.intersect` [r1, r2])
+    let (_,_,c) = getRoad r
+        connects r1 r2 = let (l1,l2,c1)   = getRoad r1
+                             (l3, l4, c2) = getRoad r2 in
+            c1 == c2 && (not . null $ [l1, l2] `List.intersect` [l3, l4])
         containsRoad = any sameRoad roads where
-            sameRoad r2@(old1, old2, c1) = (r == r2) || (r == (old2, old1, c1))
+            sameRoad r2 = let (old1, old2, c1) = getRoad r2 in
+                (r == r2) || (getRoad r == (old2, old1, c1))
         unique = not containsRoad
         contiguous = any (connects r) roads
     return $ unique && contiguous && c == currentPlayer

@@ -18,7 +18,7 @@ playGame runs the game.  Project was made for Advanced Programming course
 
 module GamePlay where
 
-import CatanGUI 
+import CatanGUI
 import Control.Monad (liftM2, unless)
 import Control.Monad.Random.Class(getRandomR)
 import Control.Monad.Random(MonadRandom)
