@@ -20,7 +20,7 @@ hexSize :: Num a => a
 hexSize = 90
 
 beginGUI :: Game -> IO ()
-beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
+beginGUI cmvars = startGUI defaultConfig  (setup cmvars)
 
 mkButton :: String -> UI (Element, Element)
 mkButton title = do
@@ -52,16 +52,23 @@ svgElems = do
     # set SVG.height "400"
   elemCircle <- SVG.polygon
     # set SVG.class_ "hex"
-    # set SVG.points "300,150 225,280 75,280 0,150 75,20 225,20"
+    # set SVG.points (hexPoints 50 50)
     # set SVG.stroke "green"
     # set SVG.stroke_width "4"
     # set SVG.fill "yellow"
-  on UI.hover elemCircle $ const $ do 
+  on UI.hover elemCircle $ const $
     element elemCircle # set SVG.fill "blue"
-  on UI.leave elemCircle $ const $ do 
+  on UI.leave elemCircle $ const $
     element elemCircle # set SVG.fill "yellow"
   return context #+ [element elemCircle]
 
+
+hexPoints x y =
+  unwords (map hexCorner [0..5])
+  where hexCorner i =
+         let angle_deg = 60 * i + 30
+             angle_rad = pi / 180 * angle_deg in
+         show (x + 90 * (cos angle_rad)) ++ "," ++ show (y + 90 * (sin angle_rad))
 
 
 strCircle :: String
@@ -82,9 +89,9 @@ background game = do
   let hexes = map drawHex tileIndices
   return context #+ ((element bg) : hexes)
 
-  where 
-    drawHex index = do 
-      let (x,y) = hexToPixel $ tileToAxial index 
+  where
+    drawHex index = do
+      let (x,y) = hexToPixel $ tileToAxial index
       let color = getTileColor index
       hex <- SVG.circle
         # set SVG.cx (show (x + 5 * 90))
@@ -93,8 +100,8 @@ background game = do
         # set SVG.stroke "black"
         # set SVG.stroke_width "1"
         # set SVG.fill color
-      element hex 
-    getTileColor index = 
+      element hex
+    getTileColor index =
       let tile = getTile (board game) index in
       case tile of
         Paying t _ -> case t of
@@ -106,18 +113,18 @@ background game = do
         Desert -> "rgb(253, 227, 167)"
 
 -- hexToPixel :: (Integral t1, Integral t) => (Double, Double) -> (t, t1)
-hexToPixel (q1, r1) = 
+hexToPixel (q1, r1) =
     let q = fromIntegral q1
-        r = fromIntegral r1 
+        r = fromIntegral r1
         x = hexSize * (q + r/2.0) * sqrt 3
         y = hexSize * 3.0/2.0 * r in
     (round x, round y)
 
 endTurn game@Game{..} = do
-  let CatanMVars{..} = mvars 
+  let CatanMVars{..} = mvars
   r <- takeMVar requestVar
   case r of
-    NextMove -> do 
+    NextMove -> do
       game <- takeMVar gameVar
       _ <- takeMVar nameVar
       putMVar actionVar EndTurn
