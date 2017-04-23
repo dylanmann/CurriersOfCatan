@@ -16,8 +16,8 @@ import Control.Concurrent(threadDelay)
     SVG
 ------------------------------------------------------------------------------}
 data WindowSize = WindowSize {x :: Int, y :: Int}
--- hexSize :: Int 
-hexSize = 60
+hexSize :: Num a => a
+hexSize = 90
 
 beginGUI :: Game -> IO ()
 beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
@@ -71,24 +71,39 @@ strCircle = "<svg width=\"150\" height=\"100\">"
 
 background :: Game -> UI Element
 background game = do
-  let height = 10 * hexSize  
-  bg <- SVG.svg
-    # set SVG.width "2000"
-    # set SVG.height "2000"
-  let hexes = map drawHex (take 1 tileIndices)
-  return bg #+ hexes
+  let height = 10 * hexSize
+  context <- SVG.svg
+    # set SVG.width (show height)
+    # set SVG.height (show height)
+  bg <- SVG.rect
+    # set SVG.width (show height)
+    # set SVG.height (show height)
+    # set SVG.fill "rgb(129,207,224)"
+  let hexes = map drawHex tileIndices
+  return context #+ ((element bg) : hexes)
 
   where 
     drawHex index = do 
       let (x,y) = hexToPixel $ tileToAxial index 
+      let color = getTileColor index
       hex <- SVG.circle
-        # set SVG.cx (show x)
-        # set SVG.cy (show y)
+        # set SVG.cx (show (x + 5 * 90))
+        # set SVG.cy (show (y + 5 * 90))
         # set SVG.r (show hexSize)
         # set SVG.stroke "black"
         # set SVG.stroke_width "1"
-        # set SVG.fill "blue"
+        # set SVG.fill color
       element hex 
+    getTileColor index = 
+      let tile = getTile (board game) index in
+      case tile of
+        Paying t _ -> case t of
+          Hills -> "rgb(179, 94, 30)"
+          Forest -> "rgb(30, 130, 76)"
+          Mountains -> "rgb(190, 144, 212)"
+          Fields -> "rgb(135, 211, 124)"
+          Pasture -> "rgb(245, 215, 110)"
+        Desert -> "rgb(253, 227, 167)"
 
 -- hexToPixel :: (Integral t1, Integral t) => (Double, Double) -> (t, t1)
 hexToPixel (q1, r1) = 
@@ -96,7 +111,7 @@ hexToPixel (q1, r1) =
         r = fromIntegral r1 
         x = hexSize * (q + r/2.0) * sqrt 3
         y = hexSize * 3.0/2.0 * r in
-    ((round x) + 1000, (round y) + 1000)
+    (round x, round y)
 
 endTurn game@Game{..} = do
   let CatanMVars{..} = mvars 
