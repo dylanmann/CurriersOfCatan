@@ -87,25 +87,28 @@ background game = do
       context <- SVG.g
       hex <- SVG.polygon
         # set SVG.class_ "hex"
-        # set SVG.points (hexPoints (x + 6 * 80) (y + 6 * 80) 80)
+        # set SVG.points (hexPoints (x + 6 * hexSize) (y + 6 * hexSize) hexSize)
         # set SVG.stroke "black"
         # set SVG.stroke_width "1"
         # set SVG.fill color
       if token == "" then return context #+ [element hex] else do
         circ <- SVG.circle
           # set SVG.r "30"
-          # set SVG.cx (show (x + 6 * 80))
-          # set SVG.cy (show (y + 6 * 80))
+          # set SVG.cx (show (x + 6 * hexSize))
+          # set SVG.cy (show (y + 6 * hexSize))
           # set SVG.stroke "black"
           # set SVG.stroke_width "1"
           # set SVG.fill "rgb(228, 241, 254)"
+        shadow <- SVG.circle
+
         t <- SVG.text
           # set SVG.text_anchor "middle"
           # set SVG.alignment_baseline "central"
-          # set SVG.x (show (x + 6 * 80))
-          # set SVG.y (show (y + 6 * 80))
+          # set SVG.x (show (x + 6 * hexSize))
+          # set SVG.y (show (y + 6 * hexSize))
           # set SVG.font_size "35"
-          # set SVG.font_family "Verdana"
+          # set SVG.font_family "Palatino"
+          # set SVG.font_weight "bold"
           # set text token
           # set SVG.fill "black"
         return context #+ [element hex, element circ, element t]
