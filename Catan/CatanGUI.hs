@@ -20,7 +20,7 @@ hexSize :: Num a => a
 hexSize = 90
 
 beginGUI :: Game -> IO ()
-beginGUI cmvars = startGUI defaultConfig  (setup cmvars)
+beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
 
 mkButton :: String -> UI (Element, Element)
 mkButton title = do
@@ -63,10 +63,12 @@ svgElems = do
   return context #+ [element elemCircle]
 
 
-hexPoints x y =
+hexPoints x1 y1 =
   unwords (map hexCorner [0..5])
   where hexCorner i =
-         let angle_deg = 60 * i + 30
+         let x = fromIntegral x1
+             y = fromIntegral y1
+             angle_deg = 60 * i + 30
              angle_rad = pi / 180 * angle_deg in
          show (x + 90 * (cos angle_rad)) ++ "," ++ show (y + 90 * (sin angle_rad))
 
@@ -93,14 +95,32 @@ background game = do
     drawHex index = do
       let (x,y) = hexToPixel $ tileToAxial index
       let color = getTileColor index
-      hex <- SVG.circle
-        # set SVG.cx (show (x + 5 * 90))
-        # set SVG.cy (show (y + 5 * 90))
-        # set SVG.r (show hexSize)
+      let token = getToken index
+      context <- SVG.g
+      hex <- SVG.polygon
+        # set SVG.class_ "hex"
+        # set SVG.points (hexPoints (x + 5 * 90) (y + 5 * 90))
         # set SVG.stroke "black"
         # set SVG.stroke_width "1"
         # set SVG.fill color
-      element hex
+      if token == "" then return context #+ [element hex] else do
+        circ <- SVG.circle
+          # set SVG.r "30"
+          # set SVG.cx (show (x + 5 * 90))
+          # set SVG.cy (show (y + 5 * 90))
+          # set SVG.stroke "black"
+          # set SVG.stroke_width "1"
+          # set SVG.fill "rgb(228, 241, 254)"
+        t <- SVG.text
+          # set SVG.text_anchor "middle"
+          # set SVG.alignment_baseline "central"
+          # set SVG.x (show (x + 5 * 90))
+          # set SVG.y (show (y + 5 * 90))
+          # set SVG.font_size "35"
+          # set SVG.font_family "Verdana"
+          # set text token
+          # set SVG.fill "black"
+        return context #+ [element hex, element circ, element t]
     getTileColor index =
       let tile = getTile (board game) index in
       case tile of
@@ -111,8 +131,21 @@ background game = do
           Fields -> "rgb(135, 211, 124)"
           Pasture -> "rgb(245, 215, 110)"
         Desert -> "rgb(253, 227, 167)"
+    getToken index = case getTile (board game) index of
+        Paying _ tok -> show $ case tok of
+          Two    -> 2
+          Three  -> 3
+          Four   -> 4
+          Five   -> 5
+          Six    -> 6
+          Eight  -> 8
+          Nine   -> 9
+          Ten    -> 10
+          Eleven -> 11
+          Twelve -> 12
+        Desert -> ""
 
--- hexToPixel :: (Integral t1, Integral t) => (Double, Double) -> (t, t1)
+hexToPixel :: (Int, Int) -> (Int, Int)
 hexToPixel (q1, r1) =
     let q = fromIntegral q1
         r = fromIntegral r1
