@@ -7,8 +7,9 @@ import           Control.Monad                      (void)
 import           Types
 import qualified Graphics.UI.Threepenny      as UI
 import           Graphics.UI.Threepenny.Core
-import qualified Graphics.UI.Threepenny.SVG  as SVG
-
+import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
+import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter)
+import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter)
 import Control.Concurrent.MVar
 import Control.Concurrent(threadDelay)
 
@@ -40,7 +41,7 @@ setup game@Game{..} w = void $ do
 
   getBody w #+ [element heading
                , UI.div #+ [background game]
-               ]
+               , element endturnview]
 
 hexPoints x1 y1 r1 =
   unwords (map hexCorner [0..5])
@@ -63,6 +64,33 @@ flatHexPoints x1 y1 r1 =
              angle_rad = pi / 180 * angle_deg in
          show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
 
+
+-- shadow x y = do
+--   filt <- SVG.filter
+--     # set SVG.id "f4"
+--     # set SVG.x (show x)
+--     # set SVG.y (show y)
+--     # set SVG.width "200%"
+--     # set SVG.height "200%"
+--   offset <- SVG.feOffset
+--     # set SVG.result "offOut"
+--     # set SVG.in_ "SourceGraphic"
+--     # set SVG.dx "20"
+--     # set SVG.dy "20"
+--   mat <- SVG.feColorMatrix
+--     # set SVG.result "matrixOut"
+--     # set SVG.in_ "offOut"
+--     # set SVG.type_ "matrix"
+--     # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
+--   blur <- SVG.feGaussianBlur
+--     # set SVG.result "blurOut"
+--     # set SVG.in_ "matrixOut"
+--     # set SVG.stdDeviation "10"
+--   blend <- SVG.feBlend
+--     # set SVG.in_ "SourceGraphic"
+--     # set SVG.in2 "blurOut"
+--     # set SVG.mode "normal"
+--   SVG.defs #+ [element filt #+ [element offset, element mat, element blur, element blend]]
 
 background :: Game -> UI Element
 background game = do
@@ -99,8 +127,6 @@ background game = do
           # set SVG.stroke "black"
           # set SVG.stroke_width "1"
           # set SVG.fill "rgb(228, 241, 254)"
-        shadow <- SVG.circle
-
         t <- SVG.text
           # set SVG.text_anchor "middle"
           # set SVG.alignment_baseline "central"

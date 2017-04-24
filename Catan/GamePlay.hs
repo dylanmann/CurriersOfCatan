@@ -68,7 +68,7 @@ initialize :: IO Game
 initialize = do
   b <- setupBoard
   d <- shuffleM devCards
-  p <- setupPlayers
+  let p = defaultPlayers
   m <- makeMVars
   let des = (desert b)
   return $
