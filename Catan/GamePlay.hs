@@ -29,7 +29,7 @@ import Control.Concurrent.MVar.Lifted
 import Control.Concurrent(forkIO)
 import Types
 import Actions
-import ActionParsing
+-- import ActionParsing
 
 main :: IO Name
 main = playGame
