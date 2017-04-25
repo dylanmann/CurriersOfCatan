@@ -105,8 +105,12 @@ buildRoad loc1 loc2 = do
                              update = S.put(game { players = newPs,
                                                 roads = newRs,
                                                 longestRoad = newLongestRoad longestRoad newRs})
-                         if validP && newRoad && contiguous then update >> return True else
-                             err "invalid road location"
+                         if validP then
+                           if newRoad then
+                             if contiguous then update >> return True
+                                else err "not connected"
+                             else err "not new road"
+                          else err "not enough resources"
 
 -- | constructs a city at the given corner locations if valid
 buildCity :: CornerLocation -> MyState Bool
@@ -363,7 +367,7 @@ stealFromOneOf :: [(Name, Color)] -> MyState()
 stealFromOneOf l = do
     game@Game{..} <- S.get
     CatanMVars{..} <- getCatanMVars
-    putMVar requestVar (StealFrom l)
+    putMVar stealVar l
     c <- takeMVar colorVar
     let resChoices = allResources $ getPlayer c players
     case resChoices of
@@ -387,7 +391,7 @@ moveRobber = do
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put(game{robberTile = t})
     case options of
-        []  -> liftIO $ putStrLn "no adjacent settlements"
+        []  -> return ()
         l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
     where playerAtCorner board t b =
            let corner = getCorner board (buildingLoc b) in

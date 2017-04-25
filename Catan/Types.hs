@@ -54,7 +54,6 @@ module Types(ProgressCard(..),
              Game(..),
 
              CatanMVars(..),
-             Request(..),
              PlayerAction(..),
 
              module Board)
@@ -276,11 +275,11 @@ instance Show Player where
 
 data CatanMVars = CatanMVars{nameVar     :: MVar Name,
                              actionVar   :: MVar PlayerAction,
-                             requestVar  :: MVar Request,
                              robberVar   :: MVar TileLocation,
                              colorVar    :: MVar Color,
                              gameVar     :: MVar Game,
-                             rollVar     :: MVar Int}
+                             rollVar     :: MVar Int,
+                             stealVar    :: MVar [(Name, Color)]}
 
 -- | show and read instances so that the game can be shown
 instance Show CatanMVars where
@@ -288,12 +287,6 @@ instance Show CatanMVars where
 
 instance Read CatanMVars where
   readsPrec _ = undefined
-
--- | requests sent to the UI thread for user input
-data Request = NextMove
-             | MoveRobber
-             | StealFrom [(Name, Color)]
-             deriving(Read, Show)
 
 -- | Player Actions that can be recieved by the server from the UI thread
 -- | after a `NextMove` `Request`

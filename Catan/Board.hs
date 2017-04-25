@@ -56,7 +56,7 @@ module Board(Terrain(..),
 
 import qualified Data.Map as Map
 import Data.Map(Map)
-import Data.Maybe(fromJust)
+import Data.Maybe(fromJust, mapMaybe)
 import System.Random.Shuffle(shuffleM)
 
 -- | Resources that are held by players and used as currency
@@ -101,7 +101,7 @@ type Reward = (Neighbors, Maybe Harbor)
 
 -- | Protected type can only be instantiated by makeCornerLocation outside the
 --   module
-data CornerLocation = CornerLocation (Int, Int)
+data CornerLocation = CornerLocation (Int, Int, Bool)
     deriving(Ord, Show, Read, Eq)
 
 -- | neighboring tiles of the corner
@@ -117,12 +117,15 @@ data Harbor = GenericHarbor
 
 
 -- | safe method for creating corner locations
-makeCornerLocation :: Int -> Int -> Maybe CornerLocation
-makeCornerLocation x y | x < 0 || y < 0 = Nothing
-makeCornerLocation x 0 | x < 6          = Just $ CornerLocation (x, 0)
-makeCornerLocation x 1 | x < 18         = Just $ CornerLocation (x, 1)
-makeCornerLocation x 2 | x < 30         = Just $ CornerLocation (x, 2)
-makeCornerLocation _ _                  = Nothing
+makeCornerLocation :: Int -> Int -> Bool -> Maybe CornerLocation
+makeCornerLocation x y t = let c = CornerLocation (x, y, t) in
+  if c `elem` cornerIndices then Just c else Nothing
+
+-- makeCornerLocation x y | x < 0 || y < 0 = Nothing
+-- makeCornerLocation x 0 | x < 6          = Just $ CornerLocation (x, 0)
+-- makeCornerLocation x 1 | x < 18         = Just $ CornerLocation (x, 1)
+-- makeCornerLocation x 2 | x < 30         = Just $ CornerLocation (x, 2)
+-- makeCornerLocation _ _                  = Nothing
 
 -- | Protected type can only be instantiated by makeCornerLocation outside the
 --   module
@@ -152,10 +155,8 @@ type Corners = Map CornerLocation Corner
 type Tiles = Map TileLocation Tile
 
 cornerIndices :: [CornerLocation]
-cornerIndices = map CornerLocation $
-                [0.. 5] `zip` repeat 0 ++
-                [0..17] `zip` repeat 1 ++
-                [0..29] `zip` repeat 2
+cornerIndices = map CornerLocation [(1,-1,False),(0,0,True),(0,-1,False),(-1,1,True),(0,0,False),(0,1,True),(2,-1,False),(1,0,True),(2,-2,False),(1,-1,True),(1,-2,False),(0,-1,True),(0,-2,False),(-1,0,True),(-1,-1,False),(-2,1,True),(-1,0,False),(-2,2,True),(-1,1,False),(-1,2,True),(0,1,False),(0,2,True),(1,0,False),(1,1,True),(3,-1,False),(2,0,True),(3,-2,False),(2,-1,True),(3,-3,False),(2,-2,True),(2,-3,False),(1,-2,True),(1,-3,False),(0,-2,True),(0,-3,False),(-1,-1,True),(-1,-2,False),(-2,0,True),(-2,-1,False),(-3,1,True),(-2,0,False),(-3,2,True),(-2,1,False),(-3,3,True),(-2,2,False),(-2,3,True),(-1,2,False),(-1,3,True),(0,2,False),(0,3,True),(1,1,False),(1,2,True),(2,0,False),(2,1,True)]
+
 
 innerNeighbors :: [Neighbors]
 innerNeighbors =
@@ -223,18 +224,13 @@ setupBoard = do allCs <- allCorners
 getCorner :: Board -> CornerLocation -> Corner
 getCorner (Board _ cs) c = fromJust $ Map.lookup c cs
 
--- always x +- 1 but also sometimes need to look inwards or outwards
 adjacentCorners :: CornerLocation -> [CornerLocation]
-adjacentCorners (CornerLocation c) = map CornerLocation $ adj c where
-  adj (0, 0) = [(17, 1), (5, 0), (1,0)]
-  adj (0, 1) = [(29, 2), (5, 0), (1,0)]
-  adj (0, 2) = [(29, 2), (1, 2)]
-  adj (x, 0) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
-  adj (x, 1) = [(3 * x, 1), (x - 1, 0), (x + 1, 0)]
-  adj (x, 2)
-    | (x `mod` 5) `elem` [0, 1, 3] = [(x - 1, 2), (x + 1, 2)]
-    | otherwise = [(x - 1, 2), (x + 1, 2), (x `quot` 5, 1)]
-  adj _ = error "invalid corner"
+adjacentCorners (CornerLocation (x, y, True)) =
+  mapMaybe mk [(x, y-1, False), (x+1, y-1, False), (x+1, y-2, False)]
+    where mk (a, b, c) = makeCornerLocation a b c
+adjacentCorners (CornerLocation (x, y, False)) =
+  mapMaybe mk [(x, y+1, True), (x-1, y+1, True), (x-1, y+2, True)]
+    where mk (a, b, c) = makeCornerLocation a b c
 
 getTile :: Board -> TileLocation -> Tile
 getTile (Board ts _) l = fromJust $ Map.lookup l ts
@@ -247,13 +243,19 @@ desert = foldr des err . Map.toList . tiles
 
 defaultBuildingLocations :: [CornerLocation]
 defaultBuildingLocations = map CornerLocation
-  [(17,1), (15, 1), (13, 1), (11,1), (9,1), (7,1), (5,1), (2,1)]
+   [(1,1,True),(0,2,True),(-1,2,True),(-2,2,True),(-2,1,True),(-1,0,True),(0,-1,True),(2,-2,False)]
+
+
+  -- [(17,1), (15, 1), (13, 1), (11,1), (9,1), (7,1), (5,1), (2,1)]
 
 
 defaultRoadLocations :: [(CornerLocation, CornerLocation)]
-defaultRoadLocations = map mkLoc
-          [(0, 17), (16, 15), (14, 13), (12, 11), (10, 9), (8, 7), (5, 4), (3, 2)]
-      where mkLoc (x1, x2) = (CornerLocation (x1, 1), CornerLocation (x2, 1))
+defaultRoadLocations = map mkLoc [((2,-1,False),(1,1,True)),((1,0,False),(0,2,True)),((0,1,False),(-1,2,True)),((-1,1,False),(-2,2,True)),((-1,0,False),(-2,1,True)),((-1,-1,False),(-1,0,True)),((0,-1,True),(1,-2,False)),((1,-1,True),(2,-2,False))]
+  where mkLoc (x1, x2) = (CornerLocation x1, CornerLocation x2)
+
+  -- map mkLoc
+  --         [(0, 17), (16, 15), (14, 13), (12, 11), (10, 9), (8, 7), (5, 4), (3, 2)]
+  --     where mkLoc (x1, x2) = (CornerLocation (x1, 1), CornerLocation (x2, 1))
 
 
 axialToTile :: (Int, Int) -> Maybe TileLocation
@@ -304,59 +306,62 @@ tileToAxial (TileLocation l) = case l of
 
 
 cornerToAxial :: CornerLocation -> (Int, Int, Bool)
-cornerToAxial (CornerLocation c) = case c of
-  (0,0)   -> ( 1, -1, False)
-  (1,0)   -> ( 0,  0, True)
-  (2,0)   -> ( 0, -1, False)
-  (3,0)   -> (-1,  1, True)
-  (4,0)   -> ( 0,  0, False)
-  (5,0)   -> ( 0,  1, True)
-  (0,1)   -> ( 2, -1, False)
-  (1,1)   -> ( 1,  0, True)
-  (2,1)   -> ( 2, -2, False)
-  (3,1)   -> ( 1, -1, True)
-  (4,1)   -> ( 1, -2, False)
-  (5,1)   -> ( 0, -1, True)
-  (6,1)   -> ( 0, -2, False)
-  (7,1)   -> (-1,  0, True)
-  (8,1)   -> (-1, -1, False)
-  (9,1)   -> (-2,  1, True)
-  (10,1)  -> (-1,  0, False)
-  (11,1)  -> (-2,  2, True)
-  (12,1)  -> (-1,  1, False)
-  (13,1)  -> (-1,  2, True)
-  (14,1)  -> ( 0,  1, False)
-  (15,1)  -> ( 0,  2, True)
-  (16,1)  -> ( 1,  0, False)
-  (17,1)  -> ( 1,  1, True)
-  (0,2)   -> ( 3, -1, False)
-  (1,2)   -> ( 2,  0, True)
-  (2,2)   -> ( 3, -2, False)
-  (3,2)   -> ( 2, -1, True)
-  (4,2)   -> ( 3, -3, False)
-  (5,2)   -> ( 2, -2, True)
-  (6,2)   -> ( 2, -3, False)
-  (7,2)   -> ( 1, -2, True)
-  (8,2)   -> ( 1, -3, False)
-  (9,2)   -> ( 0, -2, True)
-  (10,2)  -> ( 0, -3, False)
-  (11,2)  -> (-1, -1, True)
-  (12,2)  -> (-1, -2, False)
-  (13,2)  -> (-2,  0, True)
-  (14,2)  -> (-2, -1, False)
-  (15,2)  -> (-3,  1, True)
-  (16,2)  -> (-2,  0, False)
-  (17,2)  -> (-3,  2, True)
-  (18,2)  -> (-2,  1, False)
-  (19,2)  -> (-3,  3, True)
-  (20,2)  -> (-2,  2, False)
-  (21,2)  -> (-2,  3, True)
-  (22,2)  -> (-1,  2, False)
-  (23,2)  -> (-1,  3, True)
-  (24,2)  -> ( 0,  2, False)
-  (25,2)  -> ( 0,  3, True)
-  (26,2)  -> ( 1,  1, False)
-  (27,2)  -> ( 1,  2, True)
-  (28,2)  -> ( 2,  0, False)
-  (29,2)  -> ( 2,  1, True)
-  _      -> error "No other corner locations exist"
+cornerToAxial (CornerLocation c) = c
+
+-- cornerToAxial :: CornerLocation -> (Int, Int, Bool)
+-- cornerToAxial (CornerLocation c) = case c of
+--   (0,0)   -> ( 1, -1, False)
+--   (1,0)   -> ( 0,  0, True)
+--   (2,0)   -> ( 0, -1, False)
+--   (3,0)   -> (-1,  1, True)
+--   (4,0)   -> ( 0,  0, False)
+--   (5,0)   -> ( 0,  1, True)
+--   (0,1)   -> ( 2, -1, False)
+--   (1,1)   -> ( 1,  0, True)
+--   (2,1)   -> ( 2, -2, False)
+--   (3,1)   -> ( 1, -1, True)
+--   (4,1)   -> ( 1, -2, False)
+--   (5,1)   -> ( 0, -1, True)
+--   (6,1)   -> ( 0, -2, False)
+--   (7,1)   -> (-1,  0, True)
+--   (8,1)   -> (-1, -1, False)
+--   (9,1)   -> (-2,  1, True)
+--   (10,1)  -> (-1,  0, False)
+--   (11,1)  -> (-2,  2, True)
+--   (12,1)  -> (-1,  1, False)
+--   (13,1)  -> (-1,  2, True)
+--   (14,1)  -> ( 0,  1, False)
+--   (15,1)  -> ( 0,  2, True)
+--   (16,1)  -> ( 1,  0, False)
+--   (17,1)  -> ( 1,  1, True)
+--   (0,2)   -> ( 3, -1, False)
+--   (1,2)   -> ( 2,  0, True)
+--   (2,2)   -> ( 3, -2, False)
+--   (3,2)   -> ( 2, -1, True)
+--   (4,2)   -> ( 3, -3, False)
+--   (5,2)   -> ( 2, -2, True)
+--   (6,2)   -> ( 2, -3, False)
+--   (7,2)   -> ( 1, -2, True)
+--   (8,2)   -> ( 1, -3, False)
+--   (9,2)   -> ( 0, -2, True)
+--   (10,2)  -> ( 0, -3, False)
+--   (11,2)  -> (-1, -1, True)
+--   (12,2)  -> (-1, -2, False)
+--   (13,2)  -> (-2,  0, True)
+--   (14,2)  -> (-2, -1, False)
+--   (15,2)  -> (-3,  1, True)
+--   (16,2)  -> (-2,  0, False)
+--   (17,2)  -> (-3,  2, True)
+--   (18,2)  -> (-2,  1, False)
+--   (19,2)  -> (-3,  3, True)
+--   (20,2)  -> (-2,  2, False)
+--   (21,2)  -> (-2,  3, True)
+--   (22,2)  -> (-1,  2, False)
+--   (23,2)  -> (-1,  3, True)
+--   (24,2)  -> ( 0,  2, False)
+--   (25,2)  -> ( 0,  3, True)
+--   (26,2)  -> ( 1,  1, False)
+--   (27,2)  -> ( 1,  2, True)
+--   (28,2)  -> ( 2,  0, False)
+--   (29,2)  -> ( 2,  1, True)
+--   _      -> error "No other corner locations exist"

@@ -115,13 +115,14 @@ isPlayedCard _                  = False
 -- argument is whether a card has been played so far on the turn
 takeTurn :: Bool -> MyState ()
 takeTurn playedCard = do
-  g@Game{..} <- S.get
+  Game{..} <- S.get
   CatanMVars{..} <- getCatanMVars
-  putMVar gameVar g
   action <- takeMVar actionVar
   when (action == EndGame) $ error "Handle end of game better than this"
   liftIO $ print action
   turnOver <- handleAction action
+  g <- S.get
+  putMVar gameVar g
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
@@ -145,17 +146,14 @@ endTurn = do
 playGame :: IO Name
 playGame = do
   game <- liftIO initialize
-  let guiThread = forkIO $ beginGUI game
+  let guiThread = forkIO $ beginGUI game{currentPlayer = nextPlayer $ currentPlayer game}
   -- let ioThread c = forkIO $ commandLineInput c mvars
   _ <- guiThread
-  -- _ <- ioThread Red
-  -- _ <- ioThread White
-  -- _ <- ioThread Blue
-  -- _ <- ioThread Orange
   let go firstTurn = do
       CatanMVars{..} <- getCatanMVars
       advancePlayer firstTurn
-      putMVar requestVar NextMove
+      g <- S.get
+      putMVar gameVar g
       takeTurn False
       winner <- endTurn
       case winner of

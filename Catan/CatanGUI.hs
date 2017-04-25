@@ -15,7 +15,6 @@ import           Control.Concurrent(threadDelay)
 import           Data.Maybe(isJust, fromJust)
 import           Types
 import           Actions(getCatanMVars)
-import           ActionParsing
 
 {-----------------------------------------------------------------------------
     SVG
@@ -37,17 +36,34 @@ setup :: Game -> Window -> UI ()
 setup game@Game{..} w = void $ do
   let CatanMVars{..} = mvars
   return w # set title "Curriers of Catan"
+
   r <- liftIO $ takeMVar rollVar
+  game <- liftIO $ takeMVar gameVar
+
+  liftIO $ print currentPlayer
   liftIO (putStr "roll: " >> print r)
   heading <- UI.h1 # set text "Curriers of Catan"
 
   (endturnbutton, endturnview) <- mkButton "End Turn"
-  on UI.click endturnbutton $ \_ -> liftIO $ endTurn mvars
+  (buildRoadButton, buildRoadView) <- mkButton "build road"
+
+  div <- UI.div # set SVG.id "back"
 
   getBody w #+ [element heading
-               , UI.div #+ [background game]
-               , element endturnview]
+               , return div #+ [background game]
+               , element endturnview
+               , element buildRoadView]
+  on UI.click endturnbutton $ \_ -> liftIO $ endTurn mvars
 
+  on UI.click buildRoadButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Brick, Lumber]) mvars
+                                         g <- liftIO $ sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 1 0 True)) mvars
+                                         w <- askWindow
+                                         es <- getElementsByClassName w "render"
+                                         e <- getElementById w "mainHex"
+                                         (return $ fromJust $ e) #+ [foreground g]
+                                         foldr (\x acc -> delete x >> acc) (return ()) es
+                                         return ()
+hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
   unwords (map hexCorner [0..5])
   where hexCorner i =
@@ -58,7 +74,7 @@ hexPoints x1 y1 r1 =
              angle_rad = pi / 180 * angle_deg in
          show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
 
-
+flatHexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 flatHexPoints x1 y1 r1 =
   unwords (map hexCorner [0..5])
   where hexCorner i =
@@ -96,10 +112,66 @@ shadow = do
     # set SVG.mode "normal"
   return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
 
+foreground :: Game -> UI Element
+foreground Game{..} = do
+  let bs = map drawBuilding buildings
+      rs = map drawRoad roads
+      (x, y) = hexToPixel robberTile
+  robber <- SVG.circle
+    # set SVG.r "40"
+    # set SVG.cx (show x)
+    # set SVG.cy (show y)
+    # set SVG.stroke "rgb(103, 128, 159)"
+    # set SVG.stroke_width "1"
+    # set SVG.fill "rgb(103, 128, 159)"
+    # set SVG.opacity ".7"
+  SVG.g #+ (element robber : (bs ++ rs))
+  where
+    drawBuilding (Settlement c l) =
+      let (x,y) = cornerToPixel l in
+      SVG.circle
+        # set SVG.r "20"
+        # set SVG.class_ "render"
+        # set SVG.cx (show x)
+        # set SVG.cy (show y)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
+    drawBuilding (City c l) = undefined
+    drawRoad r = do
+      let (l1, l2, c) = getRoad r
+      let (x1,y1) = cornerToPixel l1
+      let (x2,y2) = cornerToPixel l2
+      g <- SVG.g # set SVG.class_ "render"
+      return g #+ [SVG.line
+        # set SVG.r "20"
+        # set SVG.x1 (show x1)
+        # set SVG.y1 (show y1)
+        # set SVG.x2 (show x2)
+        # set SVG.y2 (show y2)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "10"
+       , SVG.circle
+        # set SVG.r "5"
+        # set SVG.cx (show x1)
+        # set SVG.cy (show y1)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
+       , SVG.circle
+        # set SVG.r "5"
+        # set SVG.cx (show x2)
+        # set SVG.cy (show y2)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
+       ]
+
 background :: Game -> UI Element
 background game@Game{..} = do
   let height = 12 * hexSize :: Integer
   context <- SVG.svg
+    # set SVG.id "mainHex"
     # set SVG.width (show height)
     # set SVG.height (show height)
   bg <- SVG.polygon
@@ -110,15 +182,11 @@ background game@Game{..} = do
     # set SVG.fill "rgb(129,207,224)"
     # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
-  let bs = map drawBuilding buildings
-  let rs = concatMap drawRoad roads
-  return context #+ ((shadow: element bg : hexes) ++ rs ++ bs)
+  return context #+ ((shadow: element bg : hexes) ++ [foreground game])
 
   where
     drawHex index = do
-      let (x',y') = hexToPixel index
-      let x = (x' + 6 * hexSize)
-      let y = (y' + 6 * hexSize)
+      let (x,y) = hexToPixel index
       let color = getTileColor index
       let token = getToken index
       hex <- SVG.polygon
@@ -172,43 +240,6 @@ background game@Game{..} = do
           Eleven -> 11
           Twelve -> 12
         Desert -> ""
-    drawBuilding (Settlement c l) =
-      let (x,y) = cornerToPixel l in
-      SVG.circle
-        # set SVG.r "20"
-        # set SVG.cx (show x)
-        # set SVG.cy (show y)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
-        # set SVG.fill (colorToRGB c)
-    drawBuilding (City c l) = undefined
-    drawRoad r = do
-      let (l1, l2, c) = getRoad r
-      let (x1,y1) = cornerToPixel l1
-      let (x2,y2) = cornerToPixel l2
-      [SVG.line
-        # set SVG.r "20"
-        # set SVG.x1 (show x1)
-        # set SVG.y1 (show y1)
-        # set SVG.x2 (show x2)
-        # set SVG.y2 (show y2)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "10"
-       , SVG.circle
-        # set SVG.r "5"
-        # set SVG.cx (show x1)
-        # set SVG.cy (show y1)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
-        # set SVG.fill (colorToRGB c)
-       , SVG.circle
-        # set SVG.r "5"
-        # set SVG.cx (show x2)
-        # set SVG.cy (show y2)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
-        # set SVG.fill (colorToRGB c)
-       ]
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -235,37 +266,45 @@ hexToPixel cl =
         q = fromIntegral q1
         r = fromIntegral r1
         x = hexSize * (q + r/2.0) * sqrt 3
-        y = hexSize * 3.0/2.0 * r in
-    (round x, round y)
+        y = hexSize * 3.0/2.0 * r
+        x' = (x + 6 * hexSize)
+        y' = (y + 6 * hexSize) in
+    (round x', round y')
+
 
 tile1 = fromJust (makeTileLocation 0 1)
 tile2 = fromJust (makeTileLocation 0 0)
 
-endTurn CatanMVars{..} = do
-  putMVar actionVar EndTurn
+sendAction :: PlayerAction -> CatanMVars -> IO Game
+sendAction action CatanMVars{..} = do
+  putMVar actionVar action
   game@Game{..} <- takeMVar gameVar
+  mapM_ putStrLn errorMessage
+  when (action == PlayKnight) (robberSequence game)
+  return game
+
+robberSequence :: Game -> IO ()
+robberSequence Game{..} = do
+  let CatanMVars{..} = mvars
+  if robberTile == tile1 then
+    putMVar robberVar tile2
+    else
+      putMVar robberVar tile1
+  takeMVar gameVar
+  r <- tryTakeMVar stealVar
+  case r of
+    Nothing -> return ()
+    Just ps -> let color = snd $ head ps in
+                  putMVar colorVar color
+
+endTurn :: CatanMVars -> IO ()
+endTurn m@CatanMVars{..} = do
+  _ <- sendAction EndTurn m
   roll <- takeMVar rollVar
   putStr "roll: " >> print roll
-  r <- takeMVar requestVar
-  case r of
-    NextMove -> do print currentPlayer
-                   when (roll == 7) $ do
-                     print "move robber"
-                     if robberTile == tile1 then
-                        putMVar robberVar tile2
-                        else
-                          putMVar robberVar tile1
-                     takeMVar gameVar
-                     r <- takeMVar requestVar
-                     case r of
-                       StealFrom ps -> do
-                         color <- getChoiceFrom ps
-                         putMVar colorVar color
-                       _ -> return ()
-                     endTurn mvars
-
-    _ -> print "shouldnt hit here"
-
+  game@Game{..} <- takeMVar gameVar
+  print $ currentPlayer
+  when (roll == 7) $ robberSequence game
 
 
 renderGame game = undefined

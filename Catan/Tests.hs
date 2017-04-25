@@ -10,6 +10,7 @@ import Types
 import Actions
 import GamePlay
 
+import Debug.Trace
 
 defaultGame :: IO Game
 defaultGame = do
@@ -36,21 +37,26 @@ playerWithCards cs = let p = getPlayer Red defaultPlayers in
 cl :: (Int, Int) -> CornerLocation
 cl = fromJust . uncurry makeCornerLocation
 
+rd :: (CornerLocation, CornerLocation, Color) -> Road
+rd = fromJust . mkRoad
+
 roads1 :: Roads
 roads1 = fmap convert [((0,0), (0,1), White), ((0,1), (0,2), White),
   ((0,2), (1,2), White), ((2,2), (1,2), White)] where
-  convert (t1, t2, c) = (cl t1, cl t2, c)
+  convert (t1, t2, c) = rd (cl t1, cl t2, c)
 
+roads2 :: Roads
 roads2 = fmap convert [((1,0), (1,1), Red), ((1,1), (2,1), Red),
   ((2,1), (3,1), Red), ((3,1), (4,1), Red)] where
-  convert (t1, t2, c) = (cl t1, cl t2, c)
+  convert (t1, t2, c) = rd (cl t1, cl t2, c)
+
 
 
 longestRoadT :: Test
 longestRoadT = TestList[ newLongestRoad (Just White) roads1 ~?= Just White,
   newLongestRoad (Just Red) roads1 ~?= (Just White),
   newLongestRoad Nothing roads1 ~?= (Just White),
-  newLongestRoad Nothing ((cl (29,2), cl (0,2), Red):roads1) ~?= Nothing,
+  newLongestRoad Nothing ((rd (cl (29,2), cl (0,2), Red)):roads1) ~?= Nothing,
   newLongestRoad (Just Red) (roads1 ++ roads2) ~?= Just Red,
   newLongestRoad (Just White) (roads1 ++ roads2) ~?= Just White]
 
@@ -97,3 +103,12 @@ gameOverTest = do
   ts <- fmap TestList (sequence [goTest0,goTest1,goTest2, goTest3])
   runTestTT ts
   return ()
+
+adjacentCornersTest :: IO Test
+adjacentCornersTest = do
+  board <- setupBoard
+  return $ test $ assertBool "adjacency is commutative" (all adjacentSame cornerIndices)
+  where
+    adjacentSame cl = if not $ all ((cl `elem`) . adjacentCorners) (adjacentCorners cl) then
+      trace ("\n" ++ (show cl) ++ show (adjacentCorners cl)) False
+        else True
