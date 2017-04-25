@@ -52,6 +52,7 @@ ui code
 	main thread updates logic based on choice
 
 mainThread puts NextMove in requestVar
+
 main thread waits for next action
 
 ### gui thread displays each of the player's options and reacts to their choice
@@ -65,8 +66,11 @@ main thread waits for next action
 
 
 gui thread updates the display's callbacks based on the user's choice
+
 gui thread puts the action
+
 main thread takes next action, runs game logic
 
 if end of turn, check win conditions, advance turn
+
 else main thread waits for next action
