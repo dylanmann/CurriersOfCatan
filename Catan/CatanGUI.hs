@@ -111,7 +111,7 @@ background game@Game{..} = do
     # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
   let bs = map drawBuilding buildings
-  let rs = map drawRoad roads
+  let rs = concatMap drawRoad roads
   return context #+ ((shadow: element bg : hexes) ++ rs ++ bs)
 
   where
@@ -157,28 +157,28 @@ background game@Game{..} = do
           Fields -> "rgb(135, 211, 124)"
           Pasture -> "rgb(245, 215, 110)"
         Desert -> "rgb(253, 227, 167)"
-    getToken index = show (fst $ tileToAxial index) ++ "  " ++
-                     show (snd $ tileToAxial index)
-      -- case getTile (board game) index of
-        -- Paying _ tok -> show $ case tok of
-        --   Two    -> 2
-        --   Three  -> 3
-        --   Four   -> 4
-        --   Five   -> 5
-        --   Six    -> 6
-        --   Eight  -> 8
-        --   Nine   -> 9
-        --   Ten    -> 10
-        --   Eleven -> 11
-        --   Twelve -> 12
-        -- Desert -> ""
+    getToken index = --show (fst $ tileToAxial index) ++ "  " ++
+                     --show (snd $ tileToAxial index)
+      case getTile board index of
+        Paying _ tok -> show $ case tok of
+          Two    -> 2
+          Three  -> 3
+          Four   -> 4
+          Five   -> 5
+          Six    -> 6
+          Eight  -> 8
+          Nine   -> 9
+          Ten    -> 10
+          Eleven -> 11
+          Twelve -> 12
+        Desert -> ""
     drawBuilding (Settlement c l) =
       let (x,y) = cornerToPixel l in
       SVG.circle
         # set SVG.r "20"
         # set SVG.cx (show x)
         # set SVG.cy (show y)
-        # set SVG.stroke "rgb(34, 49, 63)"
+        # set SVG.stroke (colorToRGB c)
         # set SVG.stroke_width "1"
         # set SVG.fill (colorToRGB c)
     drawBuilding (City c l) = undefined
@@ -186,7 +186,7 @@ background game@Game{..} = do
       let (l1, l2, c) = getRoad r
       let (x1,y1) = cornerToPixel l1
       let (x2,y2) = cornerToPixel l2
-      SVG.line
+      [SVG.line
         # set SVG.r "20"
         # set SVG.x1 (show x1)
         # set SVG.y1 (show y1)
@@ -194,13 +194,28 @@ background game@Game{..} = do
         # set SVG.y2 (show y2)
         # set SVG.stroke (colorToRGB c)
         # set SVG.stroke_width "10"
+       , SVG.circle
+        # set SVG.r "5"
+        # set SVG.cx (show x1)
+        # set SVG.cy (show y1)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
+       , SVG.circle
+        # set SVG.r "5"
+        # set SVG.cx (show x2)
+        # set SVG.cy (show y2)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
+       ]
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
-  Blue -> "blue"
-  Red -> "red"
-  Orange -> "orange"
-  White -> "white"
+  Blue -> "rgb(65, 131, 215)"
+  Red -> "rgb(217, 30, 24)"
+  Orange -> "rgb(248, 148, 6)"
+  White -> "rgb(236,236,236)"
 
 cornerToPixel :: CornerLocation -> (Int, Int)
 cornerToPixel cl =
@@ -212,7 +227,6 @@ cornerToPixel cl =
         x' = x + 6 * hexSize
         y' = y + 6 * hexSize + ((if t then negate else id) $ hexSize)
     in (round x', round y')
-
 
 
 hexToPixel :: TileLocation -> (Int, Int)
