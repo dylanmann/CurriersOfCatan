@@ -1,5 +1,5 @@
 # _**Curriers of Catan**_
-## CIS 552 Spring 2017 Final Project
+## [CIS 552](https://www.seas.upenn.edu/~cis552/) Spring 2017 Final Project
 ### By Dylan Mann and David Cao
 #### Professor: Stephanie Weirich, TA: Antal Spector-Zabusky
 
