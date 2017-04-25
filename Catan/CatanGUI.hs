@@ -97,7 +97,7 @@ shadow = do
   return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
 
 background :: Game -> UI Element
-background game = do
+background game@Game{..} = do
   let height = 12 * hexSize :: Integer
   context <- SVG.svg
     # set SVG.width (show height)
@@ -110,7 +110,8 @@ background game = do
     # set SVG.fill "rgb(129,207,224)"
     # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
-  return context #+ (shadow: element bg : hexes)
+  let bs = map drawBuilding buildings
+  return context #+ ((shadow: element bg : hexes) ++ bs)
 
   where
     drawHex index = do
@@ -147,7 +148,7 @@ background game = do
           # set SVG.fill "black"
         return context #+ [element hex, element circ, element t]
     getTileColor index =
-      let tile = getTile (board game) index in
+      let tile = getTile board index in
       case tile of
         Paying t _ -> case t of
           Hills -> "rgb(179, 94, 30)"
@@ -156,19 +157,50 @@ background game = do
           Fields -> "rgb(135, 211, 124)"
           Pasture -> "rgb(245, 215, 110)"
         Desert -> "rgb(253, 227, 167)"
-    getToken index = case getTile (board game) index of
-        Paying _ tok -> show $ case tok of
-          Two    -> 2
-          Three  -> 3
-          Four   -> 4
-          Five   -> 5
-          Six    -> 6
-          Eight  -> 8
-          Nine   -> 9
-          Ten    -> 10
-          Eleven -> 11
-          Twelve -> 12
-        Desert -> ""
+    getToken index = show (fst $ tileToAxial index) ++ "  " ++
+                     show (snd $ tileToAxial index)
+      -- case getTile (board game) index of
+        -- Paying _ tok -> show $ case tok of
+        --   Two    -> 2
+        --   Three  -> 3
+        --   Four   -> 4
+        --   Five   -> 5
+        --   Six    -> 6
+        --   Eight  -> 8
+        --   Nine   -> 9
+        --   Ten    -> 10
+        --   Eleven -> 11
+        --   Twelve -> 12
+        -- Desert -> ""
+    drawBuilding (Settlement c l) = do
+      let (x',y', top) = cornerToPixel $ cornerToAxial l
+      let x = x' + 6 * hexSize
+      let y = y' + 6 * hexSize + ((if top then negate else id) $ hexSize)
+      circ <- SVG.circle
+        # set SVG.r "20"
+        # set SVG.cx (show x)
+        # set SVG.cy (show y)
+        # set SVG.stroke "rgb(34, 49, 63)"
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
+        # set SVGA.filter "url(#f1)"
+      return circ
+    drawBuilding (City c l) = undefined
+
+colorToRGB :: Color -> String
+colorToRGB c = case c of
+  Blue -> "blue"
+  Red -> "red"
+  Orange -> "orange"
+  White -> "white"
+
+cornerToPixel :: (Int, Int, Bool) -> (Int, Int, Bool)
+cornerToPixel (q1, r1, t) =
+    let q = fromIntegral q1
+        r = fromIntegral r1
+        x = hexSize * (q + r/2.0) * sqrt 3
+        y = hexSize * 3.0/2.0 * r in
+    (round x, round y, t)
 
 hexToPixel :: (Int, Int) -> (Int, Int)
 hexToPixel (q1, r1) =

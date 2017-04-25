@@ -41,6 +41,7 @@ module Board(Terrain(..),
              Corner,
              Corners,
              CornerLocation,
+             cornerToAxial,
              adjacentCorners,
              getCorner,
              makeCornerLocation,
@@ -126,7 +127,7 @@ makeCornerLocation _ _                  = Nothing
 -- | Protected type can only be instantiated by makeCornerLocation outside the
 --   module
 data TileLocation = TileLocation (Int, Int)
-    deriving(Ord, Show, Read, Eq)
+    deriving(Ord, Read, Show, Eq)
 
 -- | Tile is represented either by a paying tile or the desert.  Paying tiles
 --   yield resources to neighboring players when the dice roll the token
@@ -246,7 +247,7 @@ desert = foldr des err . Map.toList . tiles
 
 defaultBuildingLocations :: [CornerLocation]
 defaultBuildingLocations = map CornerLocation
-  [(1,1), (3, 1), (5, 1), (7,1), (9,1), (11,1), (13,1), (16,1)]
+  [(16,1), (14, 1), (12, 1), (10,1), (8,1), (6,1), (4,1), (1,1)]
 
 
 defaultRoadLocations :: [(CornerLocation, CornerLocation)]
@@ -256,7 +257,7 @@ defaultRoadLocations = map mkLoc
 
 
 axialToTile :: (Int, Int) -> Maybe TileLocation
-axialToTile cl = uncurry makeTileLocation $ case cl of
+axialToTile loc = uncurry makeTileLocation $ case loc of
   (0,0)   -> (0,0)
   (1,0)   -> (0,1)
   (1,-1)  -> (1,1)
@@ -276,10 +277,10 @@ axialToTile cl = uncurry makeTileLocation $ case cl of
   (-1,2)  -> (9,2)
   (0,2)   -> (10,2)
   (1,1)   -> (11,2)
-  _       -> error "No other tile location can exist"
+  l       -> l
 
 tileToAxial :: TileLocation -> (Int, Int)
-tileToAxial (TileLocation cl) = case cl of
+tileToAxial (TileLocation l) = case l of
   (0,0)  -> (0,0)
   (0,1)  -> (1,0)
   (1,1)  -> (1,-1)
@@ -300,3 +301,62 @@ tileToAxial (TileLocation cl) = case cl of
   (10,2) -> (0,2)
   (11,2) -> (1,1)
   _      -> error "No other tile location can exist"
+
+
+cornerToAxial :: CornerLocation -> (Int, Int, Bool)
+cornerToAxial (CornerLocation c) = case c of
+  (0,0)   -> ( 1, -1, False)
+  (1,0)   -> ( 0,  0, True)
+  (2,0)   -> ( 0, -1, False)
+  (3,0)   -> (-1,  1, True)
+  (4,0)   -> ( 0,  0, False)
+  (5,0)   -> ( 0,  1, True)
+  (0,1)   -> ( 2, -1, False)
+  (1,1)   -> ( 1,  0, True)
+  (2,1)   -> ( 2, -2, False)
+  (3,1)   -> ( 1, -1, True)
+  (4,1)   -> ( 1, -2, False)
+  (5,1)   -> ( 0, -1, True)
+  (6,1)   -> ( 0, -2, False)
+  (7,1)   -> (-1,  0, True)
+  (8,1)   -> ( 1, -1, False)
+  (9,1)   -> (-2,  1, True)
+  (10,1)  -> (-1,  0, False)
+  (11,1)  -> (-2,  2, True)
+  (12,1)  -> (-1,  1, False)
+  (13,1)  -> (-1,  2, True)
+  (14,1)  -> ( 0,  1, False)
+  (15,1)  -> ( 0,  2, True)
+  (16,1)  -> ( 1,  0, False)
+  (17,1)  -> ( 1,  1, True)
+  (0,2)   -> ( 3, -1, False)
+  (1,2)   -> ( 2,  0, True)
+  (2,2)   -> ( 3, -2, False)
+  (3,2)   -> ( 2, -1, True)
+  (4,2)   -> ( 4, -3, False)
+  (5,2)   -> ( 2, -2, True)
+  (6,2)   -> ( 3, -3, False)
+  (7,2)   -> ( 1, -2, True)
+  (8,2)   -> ( 2, -3, False)
+  (9,2)   -> ( 0, -2, True)
+  (10,2)  -> ( 1, -3, False)
+  (11,2)  -> (-1, -1, True)
+  (12,2)  -> (-1, -2, False)
+  (13,2)  -> (-2,  0, True)
+  (14,2)  -> (-2, -1, False)
+  (15,2)  -> (-3,  1, True)
+  (16,2)  -> (-2,  0, False)
+  (17,2)  -> (-3,  2, True)
+  (18,2)  -> (-2,  1, False)
+  (19,2)  -> (-3,  3, True)
+  (20,2)  -> (-2,  2, False)
+  (21,2)  -> (-2,  3, True)
+  (22,2)  -> (-1,  2, False)
+  (23,2)  -> (-1,  3, True)
+  (24,2)  -> ( 0,  2, False)
+  (25,2)  -> ( 0,  3, True)
+  (26,2)  -> ( 1,  1, False)
+  (27,2)  -> ( 1,  2, True)
+  (28,2)  -> ( 2,  0, False)
+  (29,2)  -> ( 2,  1, True)
+  _      -> error "No other corner locations exist"
