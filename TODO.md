@@ -1,9 +1,7 @@
 # TODO
 
 ## setup:
-
 	Advanced Setup:
-
 	each player:
 		picks color
 		lays down 2 settlements then two roads on board
@@ -43,7 +41,7 @@ ui code
 	gui takes roll from rollvar
 	-- (do we even need MoveRobber in this case?????)
 
-### if rolls 7 
+### if rolls 7
 	then requestVar holds MoveRobber
 	main thread waits for robberVar to hold the tile choice
 	gui thread waits for gameVar to update
