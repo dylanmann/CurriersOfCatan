@@ -64,33 +64,32 @@ flatHexPoints x1 y1 r1 =
              angle_rad = pi / 180 * angle_deg in
          show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
 
-
--- shadow x y = do
---   filt <- SVG.filter
---     # set SVG.id "f4"
---     # set SVG.x (show x)
---     # set SVG.y (show y)
---     # set SVG.width "200%"
---     # set SVG.height "200%"
---   offset <- SVG.feOffset
---     # set SVG.result "offOut"
---     # set SVG.in_ "SourceGraphic"
---     # set SVG.dx "20"
---     # set SVG.dy "20"
---   mat <- SVG.feColorMatrix
---     # set SVG.result "matrixOut"
---     # set SVG.in_ "offOut"
---     # set SVG.type_ "matrix"
---     # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
---   blur <- SVG.feGaussianBlur
---     # set SVG.result "blurOut"
---     # set SVG.in_ "matrixOut"
---     # set SVG.stdDeviation "10"
---   blend <- SVG.feBlend
---     # set SVG.in_ "SourceGraphic"
---     # set SVG.in2 "blurOut"
---     # set SVG.mode "normal"
---   SVG.defs #+ [element filt #+ [element offset, element mat, element blur, element blend]]
+shadow :: UI Element
+shadow = do
+  d <- SVG.defs
+  filt <- SVG.filter
+    # set SVG.id "f1"
+    # set SVG.width "200%"
+    # set SVG.height "200%"
+  offset <- SVG.feOffset
+    # set SVG.result "offOut"
+    # set SVG.in_ "SourceGraphic"
+    # set SVG.dx "2"
+    # set SVG.dy "2"
+  mat <- SVG.feColorMatrix
+    # set SVG.result "matrixOut"
+    # set SVG.in_ "offOut"
+    # set SVG.type_ "matrix"
+    # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
+  blur <- SVG.feGaussianBlur
+    # set SVG.result "blurOut"
+    # set SVG.in_ "matrixOut"
+    # set SVG.stdDeviation "50"
+  blend <- SVG.feBlend
+    # set SVG.in_ "SourceGraphic"
+    # set SVG.in2 "blurOut"
+    # set SVG.mode "normal"
+  return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
 
 background :: Game -> UI Element
 background game = do
@@ -101,37 +100,41 @@ background game = do
   bg <- SVG.polygon
     # set SVG.class_ "hex"
     # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
-    # set SVG.stroke "black"
+    # set SVG.stroke "rgb(34, 49, 63)"
     # set SVG.stroke_width "1"
     # set SVG.fill "rgb(129,207,224)"
+    # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
-  return context #+ ((element bg) : hexes)
+  return context #+ (shadow: element bg : hexes)
 
   where
     drawHex index = do
-      let (x,y) = hexToPixel $ tileToAxial index
+      let (x',y') = hexToPixel $ tileToAxial index
+      let x = (x' + 6 * hexSize)
+      let y = (y' + 6 * hexSize)
       let color = getTileColor index
       let token = getToken index
       context <- SVG.g
       hex <- SVG.polygon
         # set SVG.class_ "hex"
-        # set SVG.points (hexPoints (x + 6 * hexSize) (y + 6 * hexSize) hexSize)
-        # set SVG.stroke "black"
-        # set SVG.stroke_width "1"
+        # set SVG.points (hexPoints x y hexSize)
+        # set SVG.stroke "rgb(34, 49, 63)"
+        # set SVG.stroke_width "2"
         # set SVG.fill color
       if token == "" then return context #+ [element hex] else do
         circ <- SVG.circle
           # set SVG.r "30"
-          # set SVG.cx (show (x + 6 * hexSize))
-          # set SVG.cy (show (y + 6 * hexSize))
-          # set SVG.stroke "black"
+          # set SVG.cx (show x)
+          # set SVG.cy (show y)
+          # set SVG.stroke "rgb(34, 49, 63)"
           # set SVG.stroke_width "1"
           # set SVG.fill "rgb(228, 241, 254)"
+          # set SVGA.filter "url(#f1)"
         t <- SVG.text
           # set SVG.text_anchor "middle"
           # set SVG.alignment_baseline "central"
-          # set SVG.x (show (x + 6 * hexSize))
-          # set SVG.y (show (y + 6 * hexSize))
+          # set SVG.x (show x)
+          # set SVG.y (show y)
           # set SVG.font_size "35"
           # set SVG.font_family "Palatino"
           # set SVG.font_weight "bold"
@@ -176,16 +179,10 @@ endTurn game@Game{..} = do
   case r of
     NextMove -> do
       game <- takeMVar gameVar
-      _ <- takeMVar nameVar
       putMVar actionVar EndTurn
       -- check if robber needs to be moved here
       -- render new game here
-    _ -> undefined
-
-     -- MoveRobber ->          -- shouldn't happen??
-     --                       do tile <- promptForRobber
-     --                          putMVar robberVar tile
-     --                          takeMVar gameVar >>= print
+    MoveRobber -> undefined
 
      -- StealFrom ps ->       do color <- getChoiceFrom ps
      --                          putMVar colorVar color

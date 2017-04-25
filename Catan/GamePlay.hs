@@ -114,9 +114,8 @@ takeTurn playedCard = do
   g@Game{..} <- S.get
   CatanMVars{..} <- getCatanMVars
   putMVar gameVar g
-  putMVar requestVar NextMove
-  putMVar nameVar (name (getPlayer currentPlayer players))
   action <- takeMVar actionVar
+  when (action == EndGame) $ error "Handle end of game better than this"
   liftIO $ print action
   turnOver <- handleAction action
   resetErr
@@ -150,6 +149,7 @@ playGame = do
   -- _ <- ioThread Orange
   let go = do
       advancePlayer
+      putMVar requestVar NextMove
       takeTurn False
       winner <- endTurn
       case winner of

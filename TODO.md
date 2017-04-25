@@ -28,19 +28,38 @@ ui code
 
 
 
+GamePlay Flow:
 
+Player turn starts:
+main thread rolls dice, updates resources
+main puts roll into rollVar
+gui takes roll from rollvar
+-- (do we even need MoveRobber in this case?????)
 
-Event Loop:
+if rolls 7 then requestVar holds MoveRobber
+	main thread waits for robberVar to hold the tile choice
+	gui thread waits for gameVar to update
+	main thread sends back updated game state
+	main thread sends StealFrom request
+	gui thread sends back color choice in colorVar
+	main thread gets colorVar
+	main thread updates logic based on choice
 
-Client waits for Request:
+mainThread puts NextMove in requestVar
+main thread waits for next action
+gui thread somehow displays each of the player's options
 
-server sends Request
-	   waits for Action
+Build Road
+Build Sett
+Build City
+Buy Card
+Play Card
+Trade with another player
+Trade with bank/harbor
 
-client sends Action
-	   waits for Game
-	   updates ui based on game
+gui thread updates the display's callbacks based on the user's choice
+gui thread puts the action
+main thread takes next action, runs game logic
 
-server sends gamestate
-       sends next Request
-       waits for Action
+if end of turn, check win conditions, advance turn
+else main thread waits for next action
