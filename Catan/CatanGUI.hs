@@ -111,23 +111,23 @@ background game@Game{..} = do
     # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
   let bs = map drawBuilding buildings
-  return context #+ ((shadow: element bg : hexes) ++ bs)
+  let rs = map drawRoad roads
+  return context #+ ((shadow: element bg : hexes) ++ rs ++ bs)
 
   where
     drawHex index = do
-      let (x',y') = hexToPixel $ tileToAxial index
+      let (x',y') = hexToPixel index
       let x = (x' + 6 * hexSize)
       let y = (y' + 6 * hexSize)
       let color = getTileColor index
       let token = getToken index
-      context <- SVG.g
       hex <- SVG.polygon
         # set SVG.class_ "hex"
         # set SVG.points (hexPoints x y hexSize)
         # set SVG.stroke "rgb(34, 49, 63)"
         # set SVG.stroke_width "2"
         # set SVG.fill color
-      if token == "" then return context #+ [element hex] else do
+      if token == "" then SVG.g #+ [element hex] else do
         circ <- SVG.circle
           # set SVG.r "30"
           # set SVG.cx (show x)
@@ -146,7 +146,7 @@ background game@Game{..} = do
           # set SVG.font_weight "bold"
           # set text token
           # set SVG.fill "black"
-        return context #+ [element hex, element circ, element t]
+        SVG.g #+ [element hex, element circ, element t]
     getTileColor index =
       let tile = getTile board index in
       case tile of
@@ -172,20 +172,28 @@ background game@Game{..} = do
         --   Eleven -> 11
         --   Twelve -> 12
         -- Desert -> ""
-    drawBuilding (Settlement c l) = do
-      let (x',y', top) = cornerToPixel $ cornerToAxial l
-      let x = x' + 6 * hexSize
-      let y = y' + 6 * hexSize + ((if top then negate else id) $ hexSize)
-      circ <- SVG.circle
+    drawBuilding (Settlement c l) =
+      let (x,y) = cornerToPixel l in
+      SVG.circle
         # set SVG.r "20"
         # set SVG.cx (show x)
         # set SVG.cy (show y)
         # set SVG.stroke "rgb(34, 49, 63)"
         # set SVG.stroke_width "1"
         # set SVG.fill (colorToRGB c)
-        # set SVGA.filter "url(#f1)"
-      return circ
     drawBuilding (City c l) = undefined
+    drawRoad r = do
+      let (l1, l2, c) = getRoad r
+      let (x1,y1) = cornerToPixel l1
+      let (x2,y2) = cornerToPixel l2
+      SVG.line
+        # set SVG.r "20"
+        # set SVG.x1 (show x1)
+        # set SVG.y1 (show y1)
+        # set SVG.x2 (show x2)
+        # set SVG.y2 (show y2)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "10"
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -194,17 +202,23 @@ colorToRGB c = case c of
   Orange -> "orange"
   White -> "white"
 
-cornerToPixel :: (Int, Int, Bool) -> (Int, Int, Bool)
-cornerToPixel (q1, r1, t) =
-    let q = fromIntegral q1
+cornerToPixel :: CornerLocation -> (Int, Int)
+cornerToPixel cl =
+    let (q1, r1, t) = cornerToAxial cl
+        q = fromIntegral q1
         r = fromIntegral r1
         x = hexSize * (q + r/2.0) * sqrt 3
-        y = hexSize * 3.0/2.0 * r in
-    (round x, round y, t)
+        y = hexSize * 3.0/2.0 * r
+        x' = x + 6 * hexSize
+        y' = y + 6 * hexSize + ((if t then negate else id) $ hexSize)
+    in (round x', round y')
 
-hexToPixel :: (Int, Int) -> (Int, Int)
-hexToPixel (q1, r1) =
-    let q = fromIntegral q1
+
+
+hexToPixel :: TileLocation -> (Int, Int)
+hexToPixel cl =
+    let (q1, r1) = tileToAxial cl
+        q = fromIntegral q1
         r = fromIntegral r1
         x = hexSize * (q + r/2.0) * sqrt 3
         y = hexSize * 3.0/2.0 * r in
