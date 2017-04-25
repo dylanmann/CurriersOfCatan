@@ -26,7 +26,7 @@ All UI code lives here.  The module exports a single function, `beginGUI`, which
 This is the main module in the program.  It lives in a completely monadic world built on StateT, where the only `IO` that happens is by spawning the initial GUI thread and putting and taking `MVar`s.  The game runs by looping on an event and updating the state each time a `PlayerAction` is received from the UI thread, and getting those actions handled by `handleAction`, then when the player ends their turn, it advances the player and allocates resources/ asks for the robber to be moved.  Most of the time, this thread lives blocked on the UI thread, waiting for input.
 
 ##### [Parser.hs](Catan/Parser.hs), [ParserCombinator.hs](Catan/ParserCombinator.hs):
-This is the Applicative Parsing library that we built up during lecture and used in hw7.  We reused much of its functionality in the implementation of the ActinoParsing module.
+This is the Applicative Parsing library that we built up during lecture and used in hw7.  We reused much of its functionality in the implementation of the ActionParsing module.
 
 ##### **Additional Required Cabal Packages:**
 [random-shuffle](https://hackage.haskell.org/package/random-shuffle-0.0.4)
