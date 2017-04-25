@@ -310,4 +310,4 @@ data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | EndTurn
                   | EndGame
                   | Cheat [Resource]
-                  deriving(Read, Show)
+                  deriving(Read, Show, Eq)

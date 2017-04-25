@@ -16,7 +16,7 @@ prints the Game State after each request recieved.
 {-# OPTIONS_HADDOCK prune, ignore-exports, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
-module ActionParsing (commandLineInput) where
+module ActionParsing (commandLineInput, getChoiceFrom, promptForRobber) where
 
 import Control.Applicative
 import Data.Char(isSpace)
@@ -190,11 +190,12 @@ promptForRobber = do
 --         Right rs -> return rs
 
 getChoiceFrom :: [(Name, Color)] -> IO Color
-getChoiceFrom l = do putStr "options to steal from: "
-                     print (unwords (map fst l))
-                     let p = P.choice $ map (uncurry constP) l
-                     choice <- getLine
-                     case P.parse p choice of
-                         Left _ -> putStrLn "invalid name" >>
-                                   getChoiceFrom l
-                         Right c -> return c
+getChoiceFrom = return . snd . head
+                  -- do putStr "options to steal from: "
+                  --    print (unwords (map fst l))
+                  --    let p = P.choice $ map (uncurry constP) l
+                  --    choice <- getLine
+                  --    case P.parse p choice of
+                  --        Left _ -> putStrLn "invalid name" >>
+                  --                  getChoiceFrom l
+                  --        Right c -> return c

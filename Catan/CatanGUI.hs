@@ -2,16 +2,20 @@
 
 module CatanGUI (beginGUI) where
 
-import           Control.Monad                      (void)
+import           Control.Monad(when, void)
 
-import           Types
+
 import qualified Graphics.UI.Threepenny      as UI
 import           Graphics.UI.Threepenny.Core
 import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
-import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter)
+import qualified Graphics.UI.Threepenny.SVG.Attributes as SVG hiding (filter)
 import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter)
-import Control.Concurrent.MVar
-import Control.Concurrent(threadDelay)
+import           Control.Concurrent.MVar.Lifted
+import           Control.Concurrent(threadDelay)
+import           Data.Maybe(isJust, fromJust)
+import           Types
+import           Actions(getCatanMVars)
+import           ActionParsing
 
 {-----------------------------------------------------------------------------
     SVG
@@ -33,11 +37,12 @@ setup :: Game -> Window -> UI ()
 setup game@Game{..} w = void $ do
   let CatanMVars{..} = mvars
   return w # set title "Curriers of Catan"
-
+  r <- liftIO $ takeMVar rollVar
+  liftIO (putStr "roll: " >> print r)
   heading <- UI.h1 # set text "Curriers of Catan"
 
   (endturnbutton, endturnview) <- mkButton "End Turn"
-  on UI.click endturnbutton $ \_ -> liftIO $ endTurn game
+  on UI.click endturnbutton $ \_ -> liftIO $ endTurn mvars
 
   getBody w #+ [element heading
                , UI.div #+ [background game]
@@ -173,27 +178,34 @@ hexToPixel (q1, r1) =
         y = hexSize * 3.0/2.0 * r in
     (round x, round y)
 
-endTurn game@Game{..} = do
-  let CatanMVars{..} = mvars
+tile1 = fromJust (makeTileLocation 0 1)
+tile2 = fromJust (makeTileLocation 0 0)
+
+endTurn CatanMVars{..} = do
+  putMVar actionVar EndTurn
+  game@Game{..} <- takeMVar gameVar
+  roll <- takeMVar rollVar
+  putStr "roll: " >> print roll
   r <- takeMVar requestVar
   case r of
-    NextMove -> do
-      game <- takeMVar gameVar
-      putMVar actionVar EndTurn
-      -- check if robber needs to be moved here
-      -- render new game here
-    MoveRobber -> undefined
+    NextMove -> do print currentPlayer
+                   when (roll == 7) $ do
+                     print "move robber"
+                     if robberTile == tile1 then
+                        putMVar robberVar tile2
+                        else
+                          putMVar robberVar tile1
+                     takeMVar gameVar
+                     r <- takeMVar requestVar
+                     case r of
+                       StealFrom ps -> do
+                         color <- getChoiceFrom ps
+                         putMVar colorVar color
+                       _ -> return ()
+                     endTurn mvars
 
-     -- StealFrom ps ->       do color <- getChoiceFrom ps
-     --                          putMVar colorVar color
+    _ -> print "shouldnt hit here"
 
-     -- RoadBuildingChoice -> do roads <- promptForRoadBuilder c
-     --                          putMVar roadVar roads
 
-     -- YearOfPlentyChoice -> do rs <- promptForYOP
-     --                          putMVar yopVar rs
-
-     -- MonopolyChoice ->     do res <- promptForMonopoly
-     --                          putMVar monopolyVar res
 
 renderGame game = undefined

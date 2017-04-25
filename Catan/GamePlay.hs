@@ -19,7 +19,7 @@ playGame runs the game.  Project was made for Advanced Programming course
 module GamePlay where
 
 import CatanGUI
-import Control.Monad (liftM2, unless)
+import Control.Monad (liftM2, unless, when)
 import Control.Monad.Random.Class(getRandomR)
 import Control.Monad.Random(MonadRandom)
 import System.Random.Shuffle(shuffleM)
@@ -75,37 +75,41 @@ initialize = do
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
-advancePlayer :: MyState ()
-advancePlayer = do
-  roll <- rollDice
-  case roll of
-    2  -> allocateRewards Two
-    3  -> allocateRewards Three
-    4  -> allocateRewards Four
-    5  -> allocateRewards Five
-    6  -> allocateRewards Six
-    7  -> rollSeven
-    8  -> allocateRewards Eight
-    9  -> allocateRewards Nine
-    10 -> allocateRewards Ten
-    11 -> allocateRewards Eleven
-    12 -> allocateRewards Twelve
-    _  -> error "impossible"
-  game@Game{..} <- S.get
-  let next = nextPlayer currentPlayer
-  S.put(game{currentPlayer = next})
+advancePlayer :: Bool -> MyState ()
+advancePlayer firstTurn = do
   CatanMVars{..} <- getCatanMVars
-  putMVar rollVar roll
+  roll <- rollDice
+  if firstTurn && roll == 7 then
+    advancePlayer True
+  else do
+    putMVar rollVar roll
+    case roll of
+      2  -> allocateRewards Two
+      3  -> allocateRewards Three
+      4  -> allocateRewards Four
+      5  -> allocateRewards Five
+      6  -> allocateRewards Six
+      7  -> rollSeven
+      8  -> allocateRewards Eight
+      9  -> allocateRewards Nine
+      10 -> allocateRewards Ten
+      11 -> allocateRewards Eleven
+      12 -> allocateRewards Twelve
+      _  -> error "impossible"
+    game@Game{..} <- S.get
+    let next = nextPlayer currentPlayer
+    S.put(game{currentPlayer = next})
+
 
 shuffle :: (MonadRandom m) => [a] -> m [a]
 shuffle = shuffleM
 
 isPlayedCard :: PlayerAction -> Bool
-isPlayedCard (PlayMonopoly _)       = True
-isPlayedCard PlayKnight             = True
-isPlayedCard (PlayYearOfPlenty _ _) = True
-isPlayedCard (PlayRoadBuilding _ _) = True
-isPlayedCard _                      = False
+isPlayedCard PlayMonopoly{}     = True
+isPlayedCard PlayKnight         = True
+isPlayedCard PlayYearOfPlenty{} = True
+isPlayedCard PlayRoadBuilding{} = True
+isPlayedCard _                  = False
 
 -- | A player's turn.  Communicates with the UI thread and loops until turn is over
 -- argument is whether a card has been played so far on the turn
@@ -121,6 +125,7 @@ takeTurn playedCard = do
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
+-- | resets the error variable in the game state
 resetErr :: MyState ()
 resetErr = do
   g <- S.get
@@ -147,15 +152,16 @@ playGame = do
   -- _ <- ioThread White
   -- _ <- ioThread Blue
   -- _ <- ioThread Orange
-  let go = do
-      advancePlayer
+  let go firstTurn = do
+      CatanMVars{..} <- getCatanMVars
+      advancePlayer firstTurn
       putMVar requestVar NextMove
       takeTurn False
       winner <- endTurn
       case winner of
         Just w -> return w
-        Nothing -> go
-  S.evalStateT go game
+        Nothing -> go False
+  S.evalStateT (go True) game
 
 rollDice :: MyState Int
 rollDice = liftM2 (+) die die where

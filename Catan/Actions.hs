@@ -348,11 +348,13 @@ getCatanMVars = do
 -- | called after the roll in the main thread is a 7.
 --   Moves robber and penalizes players with too many resources.
 rollSeven :: MyState ()
-rollSeven = do CatanMVars{..} <- getCatanMVars
+rollSeven = do game <- S.get
+               CatanMVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
                liftIO $ do
                     putStr "penalty victims: "
                     print victims
+               putMVar gameVar game
                moveRobber
 
 -- | method that asks the user which of the possibilities they would like to steal
@@ -381,11 +383,9 @@ moveRobber :: MyState ()
 moveRobber = do
     game@Game{..} <- S.get
     CatanMVars{..} <- getCatanMVars
-    putMVar requestVar MoveRobber
     t <- takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put(game{robberTile = t})
-    liftIO $ putMVar gameVar game{robberTile = t}
     case options of
         []  -> liftIO $ putStrLn "no adjacent settlements"
         l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
