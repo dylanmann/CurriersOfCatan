@@ -319,7 +319,7 @@ cornerToAxial (CornerLocation c) = case c of
   (5,1)   -> ( 0, -1, True)
   (6,1)   -> ( 0, -2, False)
   (7,1)   -> (-1,  0, True)
-  (8,1)   -> ( 1, -1, False)
+  (8,1)   -> (-1, -1, False)
   (9,1)   -> (-2,  1, True)
   (10,1)  -> (-1,  0, False)
   (11,1)  -> (-2,  2, True)

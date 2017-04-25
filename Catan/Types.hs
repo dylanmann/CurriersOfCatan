@@ -67,6 +67,7 @@ import Data.List as List
 import Data.Ord
 import Board
 import Control.Concurrent.MVar.Lifted
+import Debug.Trace
 
 data Color = Blue | Red | Orange | White
     deriving (Enum, Read, Show, Eq, Ord)
@@ -242,7 +243,8 @@ defaultColorOrder :: [Color]
 defaultColorOrder = [White, Blue, Orange, Blue, Red, White, Red, Orange]
 
 defaultBuildings :: [Building]
-defaultBuildings = zipWith Settlement defaultColorOrder defaultBuildingLocations
+defaultBuildings = let bs = zipWith Settlement defaultColorOrder defaultBuildingLocations
+  in trace (show bs) bs
 
 defaultRoads :: Roads
 defaultRoads = map Road $ (uncurry zip3) (unzip defaultRoadLocations) defaultColorOrder
