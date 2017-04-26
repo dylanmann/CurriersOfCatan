@@ -44,25 +44,28 @@ setup game@Game{..} w = void $ do
   liftIO (putStr "roll: " >> print r)
   heading <- UI.h1 # set text "Curriers of Catan"
 
-  (endturnbutton, endturnview) <- mkButton "End Turn"
+  (endturnbutton, endturnview)     <- mkButton "End Turn"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
+  (buildSettButton, buildSettView) <- mkButton "build settlement"
 
   div <- UI.div # set SVG.id "back"
 
   getBody w #+ [element heading
                , return div #+ [background game]
                , element endturnview
-               , element buildRoadView]
+               , element buildRoadView
+               , element buildSettView]
+
   on UI.click endturnbutton $ \_ -> liftIO $ endTurn mvars
 
   on UI.click buildRoadButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Brick, Lumber]) mvars
-                                         g <- liftIO $ sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 1 0 True)) mvars
-                                         w <- askWindow
-                                         es <- getElementsByClassName w "render"
-                                         e <- getElementById w "mainHex"
-                                         (return $ fromJust $ e) #+ [foreground g]
-                                         foldr (\x acc -> delete x >> acc) (return ()) es
-                                         return ()
+                                         g <- liftIO $ sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         renderGame g
+
+  on UI.click buildSettButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
+                                         g <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         renderGame g
+
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
   unwords (map hexCorner [0..5])
@@ -307,4 +310,9 @@ endTurn m@CatanMVars{..} = do
   when (roll == 7) $ robberSequence game
 
 
-renderGame game = undefined
+renderGame :: Game -> UI ()
+renderGame game = do w <- askWindow
+                     es <- getElementsByClassName w "render"
+                     e <- getElementById w "mainHex"
+                     (return $ fromJust $ e) #+ [foreground game]
+                     foldr (\x acc -> delete x >> acc) (return ()) es

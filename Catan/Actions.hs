@@ -82,6 +82,7 @@ allocateRewards roll = do
     game@Game{..} <- S.get
     let rewards = map (rollRewards board roll robberTile) buildings
         step (c, rs) = recieve rs c
+    liftIO $ print rewards
     S.put (game {players = foldr step players rewards})
 
 -- | constructs a road at the given corner locations if valid

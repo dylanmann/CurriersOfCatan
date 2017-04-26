@@ -157,31 +157,44 @@ type Tiles = Map TileLocation Tile
 cornerIndices :: [CornerLocation]
 cornerIndices = map CornerLocation [(1,-1,False),(0,0,True),(0,-1,False),(-1,1,True),(0,0,False),(0,1,True),(2,-1,False),(1,0,True),(2,-2,False),(1,-1,True),(1,-2,False),(0,-1,True),(0,-2,False),(-1,0,True),(-1,-1,False),(-2,1,True),(-1,0,False),(-2,2,True),(-1,1,False),(-1,2,True),(0,1,False),(0,2,True),(1,0,False),(1,1,True),(3,-1,False),(2,0,True),(3,-2,False),(2,-1,True),(3,-3,False),(2,-2,True),(2,-3,False),(1,-2,True),(1,-3,False),(0,-2,True),(0,-3,False),(-1,-1,True),(-1,-2,False),(-2,0,True),(-2,-1,False),(-3,1,True),(-2,0,False),(-3,2,True),(-2,1,False),(-3,3,True),(-2,2,False),(-2,3,True),(-1,2,False),(-1,3,True),(0,2,False),(0,3,True),(1,1,False),(1,2,True),(2,0,False),(2,1,True)]
 
+getNeighbors :: CornerLocation -> Neighbors
+getNeighbors (CornerLocation (x, y, True))  = mkNeighbors $ mapMaybe axialToTile [(x, y), (x, y-1), (x+1, y-1)]
+getNeighbors (CornerLocation (x, y, False)) = mkNeighbors $ mapMaybe axialToTile [(x, y), (x, y+1), (x-1, y+1)]
 
-innerNeighbors :: [Neighbors]
-innerNeighbors =
-  zipWith3 ThreeTiles n1 n2 n3 where
-    n1 = map TileLocation $ repeat 0     `zip` repeat 0
-    n2 = map TileLocation $ (5 : [0..4]) `zip` repeat 0
-    n3 = map TileLocation $ [0..5]       `zip` repeat 0
-
-middleNeighbors :: [Neighbors]
-middleNeighbors =
-  zipWith3 ThreeTiles n1 n2 n3 where
-    n1 = map TileLocation $ concatMap (replicate 3) (zip [0..5] $ repeat 1)
-    n2 = map TileLocation $ take 18 $ outOutIn 0 0
-    n3 = map TileLocation $ (11 : oneThenTwo 0) `zip` repeat 2
-    outOutIn o i = (o, 2) : (o + 1, 2) : (i, 1) : outOutIn (o + 2) (i + 1)
-    oneThenTwo i = i : i + 1 : i + 1 : oneThenTwo (i + 2)
-
-outerNeighbors :: [Neighbors]
-outerNeighbors = two 11 0 : take 29 (pat 0) where
-  pat x = one x : one x : two x (x + 1) : one (x + 1) : two (x + 1) (x + 2) : pat (x + 2)
-  one y = OneTile (TileLocation (y, 2))
-  two y1 y2 = TwoTiles (TileLocation (y1, 2)) (TileLocation (y2, 2))
+mkNeighbors :: [TileLocation] -> Neighbors
+mkNeighbors [tl] = OneTile tl
+mkNeighbors [tl, tl2] = TwoTiles tl tl2
+mkNeighbors [tl, tl2, tl3] = ThreeTiles tl tl2 tl3
+mkNeighbors _ = error "shouldnt happen"
 
 neighbors :: [Neighbors]
-neighbors = innerNeighbors ++ middleNeighbors ++ outerNeighbors
+neighbors = map getNeighbors cornerIndices
+
+
+-- innerNeighbors :: [Neighbors]
+-- innerNeighbors =
+--   zipWith3 ThreeTiles n1 n2 n3 where
+--     n1 = map TileLocation $ repeat 0     `zip` repeat 0
+--     n2 = map TileLocation $ (5 : [0..4]) `zip` repeat 0
+--     n3 = map TileLocation $ [0..5]       `zip` repeat 0
+
+-- middleNeighbors :: [Neighbors]
+-- middleNeighbors =
+--   zipWith3 ThreeTiles n1 n2 n3 where
+--     n1 = map TileLocation $ concatMap (replicate 3) (zip [0..5] $ repeat 1)
+--     n2 = map TileLocation $ take 18 $ outOutIn 0 0
+--     n3 = map TileLocation $ (11 : oneThenTwo 0) `zip` repeat 2
+--     outOutIn o i = (o, 2) : (o + 1, 2) : (i, 1) : outOutIn (o + 2) (i + 1)
+--     oneThenTwo i = i : i + 1 : i + 1 : oneThenTwo (i + 2)
+
+-- outerNeighbors :: [Neighbors]
+-- outerNeighbors = two 11 0 : take 29 (pat 0) where
+--   pat x = one x : one x : two x (x + 1) : one (x + 1) : two (x + 1) (x + 2) : pat (x + 2)
+--   one y = OneTile (TileLocation (y, 2))
+--   two y1 y2 = TwoTiles (TileLocation (y1, 2)) (TileLocation (y2, 2))
+
+-- neighbors :: [Neighbors]
+-- neighbors = innerNeighbors ++ middleNeighbors ++ outerNeighbors
 
 allCorners :: IO [Corner]
 allCorners = do h <- harbors
