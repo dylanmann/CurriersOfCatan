@@ -63,8 +63,9 @@ setup game@Game{..} w = void $ do
                                          renderGame g
 
   on UI.click buildSettButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
-                                         g <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         g@Game{..} <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
                                          renderGame g
+                                         liftIO $ print $ buildings
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
@@ -121,6 +122,7 @@ foreground Game{..} = do
       rs = map drawRoad roads
       (x, y) = hexToPixel robberTile
   robber <- SVG.circle
+    # set SVG.class_ "render"
     # set SVG.r "40"
     # set SVG.cx (show x)
     # set SVG.cy (show y)

@@ -136,17 +136,21 @@ buildSett cor = do
         validP = validPlayer $ getPlayer c newPs
         validB = freeAdjacent cor buildings
         validL = connects c cor roads
+        isNew  = all (notSame cor) buildings
         newBs =  Settlement c cor : buildings
         update = S.put(game { players = newPs, buildings = newBs})
     if not validP then err "Settlement requires Brick, Lumber, Wool, and Grain"
     else if not validB then err "All adjacent corners must be unbuilt"
     else if not validL then err "Settlement must connect to existing roads"
+    else if not isNew  then err "Settlement must not be on top of another"
     else update >> return True
     where freeAdjacent = all . noTouch
           noTouch new b = new `notElem` adjacentCorners (buildingLoc b)
           connects c loc = any (overlap loc c)
           overlap loc c r = let (l1, l2, c1) = getRoad r in
                             c == c1 && (loc `elem` [l1, l2])
+          notSame loc (Settlement _ l) = loc /= l
+          notSame loc (City       _ l) = loc /= l
 
 -- | if both players approved already, trades one of each of rs1 from the
 --   CurrentPlayer to c2 in exchange for one of each of rs2
