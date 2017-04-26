@@ -47,6 +47,7 @@ setup game@Game{..} w = void $ do
   (endturnbutton, endturnview)     <- mkButton "End Turn"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
   (buildSettButton, buildSettView) <- mkButton "build settlement"
+  (buildCityButton, buildCityView) <- mkButton "build city"
 
   div <- UI.div # set SVG.id "back"
 
@@ -54,7 +55,8 @@ setup game@Game{..} w = void $ do
                , return div #+ [background game]
                , element endturnview
                , element buildRoadView
-               , element buildSettView]
+               , element buildSettView
+               , element buildCityView]
 
   on UI.click endturnbutton $ \_ -> liftIO $ endTurn mvars
 
@@ -64,6 +66,11 @@ setup game@Game{..} w = void $ do
 
   on UI.click buildSettButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
                                          g@Game{..} <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         renderGame g
+                                         liftIO $ print $ buildings
+
+  on UI.click buildCityButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
+                                         g@Game{..} <- liftIO $ sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) mvars
                                          renderGame g
                                          liftIO $ print $ buildings
 
@@ -142,7 +149,16 @@ foreground Game{..} = do
         # set SVG.stroke (colorToRGB c)
         # set SVG.stroke_width "1"
         # set SVG.fill (colorToRGB c)
-    drawBuilding (City c l) = undefined
+    drawBuilding (City c l) =
+      let (x, y) = cornerToPixel l in
+      SVG.circle
+        # set SVG.r "30"
+        # set SVG.class_ "render"
+        # set SVG.cx (show x)
+        # set SVG.cy (show y)
+        # set SVG.stroke (colorToRGB c)
+        # set SVG.stroke_width "1"
+        # set SVG.fill (colorToRGB c)
     drawRoad r = do
       let (l1, l2, c) = getRoad r
       let (x1,y1) = cornerToPixel l1

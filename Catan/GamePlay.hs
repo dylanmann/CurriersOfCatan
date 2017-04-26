@@ -81,6 +81,8 @@ advancePlayer firstTurn = do
   roll <- rollDice
   if firstTurn && roll == 7 then
     advancePlayer True
+  else if roll == 7 then
+    advancePlayer False
   else do
     putMVar rollVar roll
     case roll of

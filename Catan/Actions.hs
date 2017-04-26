@@ -123,7 +123,7 @@ buildCity loc = do
         validB = Settlement c loc `elem` buildings
         newBs  = City c loc : List.delete (Settlement c loc) buildings
         update = S.put(game { players = newPs, buildings = newBs})
-    if not validP then err "City requires 3 Ore and 2 Grain"
+    if      not validP then err "City requires 3 Ore and 2 Grain"
     else if not validB then err "Settlement you own must exist on same tile"
     else update >> return True
 
@@ -139,7 +139,7 @@ buildSett cor = do
         isNew  = all (notSame cor) buildings
         newBs =  Settlement c cor : buildings
         update = S.put(game { players = newPs, buildings = newBs})
-    if not validP then err "Settlement requires Brick, Lumber, Wool, and Grain"
+    if      not validP then err "Settlement requires Brick, Lumber, Wool, and Grain"
     else if not validB then err "All adjacent corners must be unbuilt"
     else if not validL then err "Settlement must connect to existing roads"
     else if not isNew  then err "Settlement must not be on top of another"
