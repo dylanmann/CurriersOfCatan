@@ -1,3 +1,4 @@
+{-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall -fno-warn-type-defaults #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module CatanGUI (beginGUI) where
@@ -11,36 +12,36 @@ import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes as SVG hiding (filter)
 import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter)
 import           Control.Concurrent.MVar.Lifted
-import           Control.Concurrent(threadDelay)
-import           Data.Maybe(isJust, fromJust)
+-- import           Control.Concurrent(threadDelay)
+import           Data.Maybe(fromJust)
 import           Types
-import           Actions(getCatanMVars)
 
 {-----------------------------------------------------------------------------
     SVG
 ------------------------------------------------------------------------------}
-data WindowSize = WindowSize {x :: Int, y :: Int}
+-- data WindowSize = WindowSize {x :: Int, y :: Int}
 hexSize :: Num a => a
 hexSize = 80
 
-beginGUI :: Game -> IO ()
+beginGUI :: CatanMVars -> IO ()
 beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
 
 mkButton :: String -> UI (Element, Element)
-mkButton title = do
-  button <- UI.button #. "button" #+ [string title]
+mkButton buttonTitle = do
+  button <- UI.button #. "button" #+ [string buttonTitle]
   view   <- UI.p #+ [element button]
   return (button, view)
 
-setup :: Game -> Window -> UI ()
-setup game@Game{..} w = void $ do
-  let CatanMVars{..} = mvars
-  return w # set title "Curriers of Catan"
+setup :: CatanMVars -> Window -> UI ()
+setup vars@CatanMVars{..} w = void $ do
+  _ <- return w # set title "Curriers of Catan"
 
   r <- liftIO $ takeMVar rollVar
+  liftIO $ print "taking init"
   game <- liftIO $ takeMVar gameVar
+  liftIO $ print "got init"
 
-  liftIO $ print currentPlayer
+  liftIO . print $ currentPlayer game
   liftIO (putStr "roll: " >> print r)
   heading <- UI.h1 # set text "Curriers of Catan"
 
@@ -49,30 +50,30 @@ setup game@Game{..} w = void $ do
   (buildSettButton, buildSettView) <- mkButton "build settlement"
   (buildCityButton, buildCityView) <- mkButton "build city"
 
-  div <- UI.div # set SVG.id "back"
+  d <- UI.div # set SVG.id "back"
 
-  getBody w #+ [element heading
-               , return div #+ [background game]
-               , element endturnview
-               , element buildRoadView
-               , element buildSettView
-               , element buildCityView]
+  _ <- getBody w #+ [element heading
+                     , return d #+ [background game]
+                     , element endturnview
+                     , element buildRoadView
+                     , element buildSettView
+                     , element buildCityView]
 
-  on UI.click endturnbutton $ \_ -> liftIO $ endTurn mvars
+  on UI.click endturnbutton $ \_ -> liftIO . endTurn $ mvars game
 
-  on UI.click buildRoadButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Brick, Lumber]) mvars
-                                         g <- liftIO $ sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 2 0 True)) mvars
+  on UI.click buildRoadButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Brick, Lumber]) vars
+                                         g <- liftIO $ sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 2 0 True)) vars
                                          renderGame g
 
-  on UI.click buildSettButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
-                                         g@Game{..} <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
+  on UI.click buildSettButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Lumber, Grain, Wool, Brick]) vars
+                                         g <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) vars
                                          renderGame g
-                                         liftIO $ print $ buildings
+                                         liftIO $ print $ buildings g
 
-  on UI.click buildCityButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
-                                         g@Game{..} <- liftIO $ sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) mvars
+  on UI.click buildCityButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) vars
+                                         g <- liftIO $ sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) vars
                                          renderGame g
-                                         liftIO $ print $ buildings
+                                         liftIO $ print $ buildings g
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
@@ -190,7 +191,7 @@ foreground Game{..} = do
 
 background :: Game -> UI Element
 background game@Game{..} = do
-  let height = 12 * hexSize :: Integer
+  let height = 12 * hexSize
   context <- SVG.svg
     # set SVG.id "mainHex"
     # set SVG.width (show height)
@@ -207,7 +208,7 @@ background game@Game{..} = do
 
   where
     drawHex index = do
-      let (x,y) = hexToPixel index
+      let (x, y) = hexToPixel index
       let color = getTileColor index
       let token = getToken index
       hex <- SVG.polygon
@@ -250,7 +251,7 @@ background game@Game{..} = do
                      --show (snd $ tileToAxial index)
       case getTile board index of
         Paying _ tok -> show $ case tok of
-          Two    -> 2
+          Two    -> 2 :: Int
           Three  -> 3
           Four   -> 4
           Five   -> 5
@@ -292,14 +293,17 @@ hexToPixel cl =
         y' = (y + 6 * hexSize) in
     (round x', round y')
 
-
+tile1 :: TileLocation
 tile1 = fromJust (makeTileLocation 0 1)
+tile2::TileLocation
 tile2 = fromJust (makeTileLocation 0 0)
 
 sendAction :: PlayerAction -> CatanMVars -> IO Game
 sendAction action CatanMVars{..} = do
   putMVar actionVar action
+  print "taking sendaction"
   game@Game{..} <- takeMVar gameVar
+  print "got sendaction"
   mapM_ putStrLn errorMessage
   when (action == PlayKnight) (robberSequence game)
   return game
@@ -311,7 +315,9 @@ robberSequence Game{..} = do
     putMVar robberVar tile2
     else
       putMVar robberVar tile1
-  takeMVar gameVar
+  print "taking robber"
+  _ <- takeMVar gameVar
+  print "got robber"
   r <- tryTakeMVar stealVar
   case r of
     Nothing -> return ()
@@ -320,17 +326,16 @@ robberSequence Game{..} = do
 
 endTurn :: CatanMVars -> IO ()
 endTurn m@CatanMVars{..} = do
-  _ <- sendAction EndTurn m
+  g <- sendAction EndTurn m
   roll <- takeMVar rollVar
   putStr "roll: " >> print roll
-  game@Game{..} <- takeMVar gameVar
-  print $ currentPlayer
-  when (roll == 7) $ robberSequence game
+  print $ nextPlayer $ currentPlayer g
+  when (roll == 7) $ robberSequence g
 
 
 renderGame :: Game -> UI ()
 renderGame game = do w <- askWindow
                      es <- getElementsByClassName w "render"
                      e <- getElementById w "mainHex"
-                     (return $ fromJust $ e) #+ [foreground game]
+                     _ <- (return $ fromJust $ e) #+ [foreground game]
                      foldr (\x acc -> delete x >> acc) (return ()) es

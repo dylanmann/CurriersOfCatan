@@ -81,10 +81,13 @@ advancePlayer firstTurn = do
   roll <- rollDice
   if firstTurn && roll == 7 then
     advancePlayer True
-  else if roll == 7 then
-    advancePlayer False
+  -- else if roll == 7 then
+  --   advancePlayer False
   else do
     putMVar rollVar roll
+    game <- S.get
+    let newg = game{currentPlayer = nextPlayer $ currentPlayer game}
+    S.put newg
     case roll of
       2  -> allocateRewards Two
       3  -> allocateRewards Three
@@ -98,9 +101,6 @@ advancePlayer firstTurn = do
       11 -> allocateRewards Eleven
       12 -> allocateRewards Twelve
       _  -> error "impossible"
-    game@Game{..} <- S.get
-    let next = nextPlayer currentPlayer
-    S.put(game{currentPlayer = next})
 
 
 shuffle :: (MonadRandom m) => [a] -> m [a]
@@ -124,7 +124,9 @@ takeTurn playedCard = do
   liftIO $ print action
   turnOver <- handleAction action
   g <- S.get
+  liftIO $ print "putting taketurn"
   putMVar gameVar g
+  liftIO $ print "advanced taketurn"
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
@@ -147,15 +149,15 @@ endTurn = do
 -- Main server thread.  Sets up UI thread and plays turns until the game is over
 playGame :: IO Name
 playGame = do
-  game <- liftIO initialize
-  let guiThread = forkIO $ beginGUI game{currentPlayer = nextPlayer $ currentPlayer game}
-  -- let ioThread c = forkIO $ commandLineInput c mvars
+  game@Game{..} <- liftIO initialize
+  let guiThread = forkIO $ beginGUI $ mvars
   _ <- guiThread
+  liftIO $ print "putting play"
+  putMVar (gameVar mvars) game
+  liftIO $ print "advanced play"
   let go firstTurn = do
       CatanMVars{..} <- getCatanMVars
       advancePlayer firstTurn
-      g <- S.get
-      putMVar gameVar g
       takeTurn False
       winner <- endTurn
       case winner of
