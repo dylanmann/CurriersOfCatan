@@ -37,8 +37,8 @@ import qualified Control.Monad.State as S
 import Control.Concurrent.MVar.Lifted
 import System.Random.Shuffle(shuffleM)
 import Control.Monad.IO.Class(liftIO)
-import Control.Monad(unless)
-import Data.Maybe(mapMaybe, fromMaybe)
+-- import Control.Monad(unless)
+import Data.Maybe(mapMaybe)
 
 import Types
 
@@ -106,12 +106,10 @@ buildRoad loc1 loc2 = do
                              update = S.put(game { players = newPs,
                                                 roads = newRs,
                                                 longestRoad = newLongestRoad longestRoad newRs})
-                         if validP then
-                           if newRoad then
-                             if contiguous then update >> return True
-                                else err "not connected"
-                             else err "not new road"
-                          else err "not enough resources"
+                         if      not validP     then err "not enough resources"
+                         else if not newRoad    then err "not new road"
+                         else if not contiguous then err "not connected"
+                         else update >> return True
 
 -- | constructs a city at the given corner locations if valid
 buildCity :: CornerLocation -> MyState Bool
@@ -167,7 +165,7 @@ playerTrade rs1 c2 rs2
         validP1 = validPlayer $ getPlayer c1 newPs
         validP2 = validPlayer $ getPlayer c2 newPs
         update = S.put(game { players = newPs })
-    if not validP1 then err "You do not have enough resources"
+    if      not validP1 then err "You do not have enough resources"
     else if not validP2 then err "Other player must have enough resources"
     else update >> return True
 
@@ -393,9 +391,7 @@ moveRobber = do
     t <- takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put $ game{robberTile = t}
-    liftIO $ print "putting robber"
     putMVar gameVar $ game{robberTile = t}
-    liftIO $ print "advanced robber"
     case options of
         []  -> return ()
         l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
@@ -425,7 +421,5 @@ handleAction a = case a of
 
 handle :: MyState Bool -> MyState Bool
 handle status = do
-      Game{..} <- S.get
-      m <- status
-      unless m $ liftIO . putStrLn $ fromMaybe "invalid input" errorMessage
+      _ <- status
       return False

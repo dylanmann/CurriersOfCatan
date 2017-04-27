@@ -29,7 +29,6 @@ import Control.Concurrent.MVar.Lifted
 import Control.Concurrent(forkIO)
 import Types
 import Actions
--- import ActionParsing
 
 main :: IO Name
 main = playGame
@@ -75,32 +74,27 @@ initialize = do
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
-advancePlayer :: Bool -> MyState ()
-advancePlayer firstTurn = do
+advancePlayer :: MyState ()
+advancePlayer = do
   CatanMVars{..} <- getCatanMVars
   roll <- rollDice
-  if firstTurn && roll == 7 then
-    advancePlayer True
-  -- else if roll == 7 then
-  --   advancePlayer False
-  else do
-    putMVar rollVar roll
-    game <- S.get
-    let newg = game{currentPlayer = nextPlayer $ currentPlayer game}
-    S.put newg
-    case roll of
-      2  -> allocateRewards Two
-      3  -> allocateRewards Three
-      4  -> allocateRewards Four
-      5  -> allocateRewards Five
-      6  -> allocateRewards Six
-      7  -> rollSeven
-      8  -> allocateRewards Eight
-      9  -> allocateRewards Nine
-      10 -> allocateRewards Ten
-      11 -> allocateRewards Eleven
-      12 -> allocateRewards Twelve
-      _  -> error "impossible"
+  putMVar rollVar roll
+  game <- S.get
+  let newGame = game{currentPlayer = nextPlayer $ currentPlayer game}
+  S.put newGame
+  case roll of
+    2  -> allocateRewards Two
+    3  -> allocateRewards Three
+    4  -> allocateRewards Four
+    5  -> allocateRewards Five
+    6  -> allocateRewards Six
+    7  -> putMVar gameVar newGame >> rollSeven
+    8  -> allocateRewards Eight
+    9  -> allocateRewards Nine
+    10 -> allocateRewards Ten
+    11 -> allocateRewards Eleven
+    12 -> allocateRewards Twelve
+    _  -> error "impossible"
 
 
 shuffle :: (MonadRandom m) => [a] -> m [a]
@@ -117,16 +111,14 @@ isPlayedCard _                  = False
 -- argument is whether a card has been played so far on the turn
 takeTurn :: Bool -> MyState ()
 takeTurn playedCard = do
-  Game{..} <- S.get
   CatanMVars{..} <- getCatanMVars
   action <- takeMVar actionVar
   when (action == EndGame) $ error "Handle end of game better than this"
   liftIO $ print action
   turnOver <- handleAction action
+  when turnOver advancePlayer
   g <- S.get
-  liftIO $ print "putting taketurn"
   putMVar gameVar g
-  liftIO $ print "advanced taketurn"
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
@@ -152,18 +144,15 @@ playGame = do
   game@Game{..} <- liftIO initialize
   let guiThread = forkIO $ beginGUI $ mvars
   _ <- guiThread
-  liftIO $ print "putting play"
   putMVar (gameVar mvars) game
-  liftIO $ print "advanced play"
-  let go firstTurn = do
+  let go = do
       CatanMVars{..} <- getCatanMVars
-      advancePlayer firstTurn
       takeTurn False
       winner <- endTurn
       case winner of
         Just w -> return w
-        Nothing -> go False
-  S.evalStateT (go True) game
+        Nothing -> go
+  S.evalStateT go game
 
 rollDice :: MyState Int
 rollDice = liftM2 (+) die die where

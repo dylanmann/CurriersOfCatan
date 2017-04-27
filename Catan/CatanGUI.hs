@@ -1,5 +1,5 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall -fno-warn-type-defaults #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, MultiParamTypeClasses #-}
 
 module CatanGUI (beginGUI) where
 
@@ -12,10 +12,10 @@ import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes as SVG hiding (filter)
 import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter)
 import           Control.Concurrent.MVar.Lifted
--- import           Control.Concurrent(threadDelay)
 import           Data.Maybe(fromJust)
 import           Types
-
+import           Control.Monad.Base
+import Control.Concurrent(threadDelay)
 {-----------------------------------------------------------------------------
     SVG
 ------------------------------------------------------------------------------}
@@ -33,47 +33,45 @@ mkButton buttonTitle = do
   return (button, view)
 
 setup :: CatanMVars -> Window -> UI ()
-setup vars@CatanMVars{..} w = void $ do
+setup CatanMVars{..} w = void $ do
   _ <- return w # set title "Curriers of Catan"
 
-  r <- liftIO $ takeMVar rollVar
-  liftIO $ print "taking init"
-  game <- liftIO $ takeMVar gameVar
-  liftIO $ print "got init"
+  game@Game{..} <- takeMVar gameVar
 
-  liftIO . print $ currentPlayer game
-  liftIO (putStr "roll: " >> print r)
   heading <- UI.h1 # set text "Curriers of Catan"
-
+  subHeading <- UI.h1 # set text ("Current Player: " ++ show currentPlayer)
+                      # set SVG.id "player"
   (endturnbutton, endturnview)     <- mkButton "End Turn"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
   (buildSettButton, buildSettView) <- mkButton "build settlement"
   (buildCityButton, buildCityView) <- mkButton "build city"
 
-  d <- UI.div # set SVG.id "back"
-
-  _ <- getBody w #+ [element heading
-                     , return d #+ [background game]
-                     , element endturnview
+  let buttons = row [element endturnview
                      , element buildRoadView
                      , element buildSettView
                      , element buildCityView]
 
-  on UI.click endturnbutton $ \_ -> liftIO . endTurn $ mvars game
+  d <- UI.div # set SVG.id "back"
 
-  on UI.click buildRoadButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Brick, Lumber]) vars
-                                         g <- liftIO $ sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 2 0 True)) vars
-                                         renderGame g
+  _ <- getBody w #+ [element heading
+                     , element subHeading
+                     , buttons
+                     , return d #+ [background game]
+                     ]
 
-  on UI.click buildSettButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Lumber, Grain, Wool, Brick]) vars
-                                         g <- liftIO $ sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) vars
-                                         renderGame g
-                                         liftIO $ print $ buildings g
+  on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
-  on UI.click buildCityButton $ \_ -> do _ <- liftIO $ sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) vars
-                                         g <- liftIO $ sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) vars
-                                         renderGame g
-                                         liftIO $ print $ buildings g
+  on UI.click buildRoadButton $ \_ -> do _ <- sendAction (Cheat [Brick, Lumber]) mvars
+                                         _ <- sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         return ()
+
+  on UI.click buildSettButton $ \_ -> do _ <- sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
+                                         _ <- sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         return ()
+
+  on UI.click buildCityButton $ \_ -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
+                                         _ <- sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) mvars
+                                         return ()
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
@@ -205,7 +203,6 @@ background game@Game{..} = do
     # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
   return context #+ ((shadow: element bg : hexes) ++ [foreground game])
-
   where
     drawHex index = do
       let (x, y) = hexToPixel index
@@ -265,10 +262,10 @@ background game@Game{..} = do
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
-  Blue -> "rgb(65, 131, 215)"
-  Red -> "rgb(217, 30, 24)"
+  Blue   -> "rgb(65, 131, 215)"
+  Red    -> "rgb(217, 30, 24)"
   Orange -> "rgb(248, 148, 6)"
-  White -> "rgb(236,236,236)"
+  White  -> "rgb(236,236,236)"
 
 cornerToPixel :: CornerLocation -> (Int, Int)
 cornerToPixel cl =
@@ -298,44 +295,53 @@ tile1 = fromJust (makeTileLocation 0 1)
 tile2::TileLocation
 tile2 = fromJust (makeTileLocation 0 0)
 
-sendAction :: PlayerAction -> CatanMVars -> IO Game
+sendAction :: PlayerAction -> CatanMVars -> UI Game
 sendAction action CatanMVars{..} = do
   putMVar actionVar action
-  print "taking sendaction"
   game@Game{..} <- takeMVar gameVar
-  print "got sendaction"
-  mapM_ putStrLn errorMessage
+  renderGame game
+  liftIO $ mapM_ putStrLn errorMessage
   when (action == PlayKnight) (robberSequence game)
   return game
 
-robberSequence :: Game -> IO ()
+robberSequence :: Game -> UI ()
 robberSequence Game{..} = do
   let CatanMVars{..} = mvars
   if robberTile == tile1 then
     putMVar robberVar tile2
-    else
-      putMVar robberVar tile1
-  print "taking robber"
-  _ <- takeMVar gameVar
-  print "got robber"
+  else
+    putMVar robberVar tile1
+  _ <- tryTakeMVar gameVar
+  g <- takeMVar gameVar
+  renderGame g
   r <- tryTakeMVar stealVar
   case r of
     Nothing -> return ()
     Just ps -> let color = snd $ head ps in
                   putMVar colorVar color
 
-endTurn :: CatanMVars -> IO ()
+endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
-  g <- sendAction EndTurn m
+  w <- askWindow
+  g@Game{..} <- sendAction EndTurn m
   roll <- takeMVar rollVar
-  putStr "roll: " >> print roll
-  print $ nextPlayer $ currentPlayer g
+  liftIO $ do putStr "roll: "
+              print roll
+  e <- getElementById w "player"
+  let t = fromJust e
+  _ <- element t # set text ("Current Player: " ++ (show currentPlayer))
+  liftIO $ threadDelay (1000 * 1000)
   when (roll == 7) $ robberSequence g
 
 
 renderGame :: Game -> UI ()
-renderGame game = do w <- askWindow
-                     es <- getElementsByClassName w "render"
-                     e <- getElementById w "mainHex"
-                     _ <- (return $ fromJust $ e) #+ [foreground game]
-                     foldr (\x acc -> delete x >> acc) (return ()) es
+renderGame game = do
+  w <- askWindow
+  es <- getElementsByClassName w "render"
+  e <- getElementById w "mainHex"
+  _ <- (return $ fromJust $ e) #+ [foreground game]
+  foldr (\x acc -> delete x >> acc) (return ()) es
+
+
+instance MonadBase IO UI where
+  liftBase = liftIO
