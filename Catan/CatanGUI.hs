@@ -31,7 +31,7 @@ beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmva
 
 mkButton :: String -> UI (Element, Element)
 mkButton buttonTitle = do
-  button <- UI.button #. "button" #+ [string buttonTitle]
+  button <- UI.button #. "button actionButton" #+ [string buttonTitle]
   view   <- UI.p #+ [element button]
   return (button, view)
 
@@ -50,38 +50,26 @@ setup CatanMVars{..} w = void $ do
   (buildCityButton, buildCityView) <- mkButton "build city"
   (testb, testview) <- mkButton "click me"
 
-  let buttons = row [element endturnview
-                     , element buildRoadView
-                     , element buildSettView
-                     , element buildCityView
-                     , element testview]
+  buttons <- row [element endturnview
+                  , element buildRoadView
+                  , element buildSettView
+                  , element buildCityView
+                  , element testview]
 
-  d <- UI.div # set SVG.id "back"
 
-  -- let (board, tiles) = background game 
+  -- let (board, tiles) = background game
   -- let board = background game
 
-  -- let tiles = background game 
+  -- let tiles = background game
   -- let board = drawBoard tiles
   -- let _ = setHover tiles setTileHover setTileLeave
 
   _ <- getBody w #+ [element heading
                      , element subHeading
-                     , buttons
+                     , element buttons
                      , background game
                      -- , return d #+ [background game]
                      ]
-
-  on UI.click testb $ \_ -> do
-    tiles <- getElementsByClassName w "tile"
-    foldr (\tile acc -> do
-      on UI.hover tile $ \_ -> do
-        element tile # set SVG.fill "white"
-      on UI.leave tile $ \_ -> do 
-        index <- get UI.value tile
-        let color = getTileColor board (read index)
-        element tile # set SVG.fill color
-      acc) (return ()) tiles
 
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
@@ -242,7 +230,7 @@ background game@Game{..} = do
 
 -- background :: Game -> (UI Element, Set (UI Element))
 -- background :: Game -> [UI Element]
--- background game = 
+-- background game =
 --   let height = 12 * hexSize :: Integer
 --   context <- SVG.svg
 --     # set SVG.width (show height)
@@ -348,26 +336,57 @@ sendAction :: PlayerAction -> CatanMVars -> UI Game
 sendAction action CatanMVars{..} = do
   putMVar actionVar action
   game@Game{..} <- takeMVar gameVar
+  _ <- tryTakeMVar gameVar
   renderGame game
   liftIO $ mapM_ putStrLn errorMessage
   when (action == PlayKnight) (robberSequence game)
   return game
 
+disableClicking :: [Element] -> Board -> UI ()
+disableClicking tiles board = do
+  foldr (\tile acc -> do
+    index <- get UI.value tile
+    let color = getTileColor board (read index)
+    element tile # set SVG.fill color
+    on UI.hover tile $ \_ -> element tile # set SVG.fill color
+    on UI.leave tile $ \_ -> return ()
+    on UI.click tile $ \_ -> element tile # set SVG.fill color
+    acc) (return ()) tiles
+  turnButtons True
+
+turnButtons :: Bool -> UI ()
+turnButtons b = do
+  w <- askWindow
+  es <- getElementsByClassName w "button"
+  foldr (\button acc -> element button # set UI.enabled b >> acc) (return ()) es
+
 robberSequence :: Game -> UI ()
-robberSequence Game{..} = do
+robberSequence oldG@Game{..} = do
+  w <- askWindow
   let CatanMVars{..} = mvars
-  _ <- tryTakeMVar gameVar
-  if robberTile == tile1 then
-    putMVar robberVar tile2
-  else
-    putMVar robberVar tile1
-  g <- takeMVar gameVar
-  renderGame g
-  r <- tryTakeMVar stealVar
-  case r of
-    Nothing -> return ()
-    Just ps -> let color = snd $ head ps in
+  tiles <- getElementsByClassName w "tile"
+  turnButtons False
+  foldr (\tile acc -> do
+    on UI.hover tile $ \_ ->
+      element tile # set SVG.fill "white"
+    on UI.leave tile $ \_ -> do
+      index <- get UI.value tile
+      let color = getTileColor board (read index)
+      element tile # set SVG.fill color
+    on UI.click tile $ \_ -> do
+      index <- get UI.value tile
+      let color = getTileColor board (read index)
+      putMVar robberVar (read index)
+      g <- takeMVar gameVar
+      liftIO $ print "took game robber"
+      renderGame g
+      disableClicking tiles board
+      r <- tryTakeMVar stealVar
+      case r of
+        Nothing -> return ()
+        Just ps -> let color = snd $ head ps in
                   putMVar colorVar color
+    acc) (return ()) tiles
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
