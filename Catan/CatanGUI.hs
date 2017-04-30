@@ -42,7 +42,7 @@ setup CatanMVars{..} w = void $ do
   game@Game{..} <- takeMVar gameVar
 
   heading <- UI.h1 # set text "Curriers of Catan"
-  subHeading <- UI.h1 # set text ("Current Player: " ++ show currentPlayer)
+  subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer)
                       # set SVG.id "player"
   (endturnbutton, endturnview)     <- mkButton "End Turn"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
@@ -67,6 +67,8 @@ setup CatanMVars{..} w = void $ do
 
   _ <- getBody w #+ [element heading
                      , element subHeading
+                     , drawResources game
+                     , drawCards game
                      , buttons
                      , background game
                      -- , return d #+ [background game]
@@ -96,6 +98,29 @@ setup CatanMVars{..} w = void $ do
   on UI.click buildCityButton $ \_ -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
                                          _ <- sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) mvars
                                          return ()
+
+drawResources :: Game -> UI Element 
+drawResources Game{..} = do
+  resourcesp <- UI.p 
+    # set UI.class_ "resources"
+    # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
+  return resourcesp
+
+drawCards :: Game -> UI Element
+drawCards Game{..} = do
+  let devcards = cards (getPlayer currentPlayer players)
+  let listitems = map (\c -> do 
+      button <- UI.button
+        # set UI.class_ "button list-group-item"
+        # set UI.type_ "button"
+        # set UI.text_ (show c)
+      return button) devcards
+  cardsTitle <- UI.h3 # set text "Development cards:"
+  list <- UI.div
+    # set UI.class_ "list-group cards"
+    #+ ((element cardsTitle):listitems)
+  return list
+
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
