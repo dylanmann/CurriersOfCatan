@@ -18,6 +18,7 @@ import           Data.Maybe(fromJust)
 import           Types
 import           Control.Monad.Base
 import Control.Concurrent(threadDelay)
+
 {-----------------------------------------------------------------------------
     SVG
 ------------------------------------------------------------------------------}
