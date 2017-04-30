@@ -70,7 +70,6 @@ setup CatanMVars{..} w = void $ do
                      , drawCards game
                      , element buttons
                      , background game
-                     -- , return d #+ [background game]
                      ]
 
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
@@ -235,42 +234,8 @@ getTileColor board index =
       Pasture -> "rgb(245, 215, 110)"
     Desert -> "rgb(253, 227, 167)"
 
-background :: Game -> UI Element
-background game@Game{..} = do
-  let height = 12 * hexSize
-  context <- SVG.svg
-    # set SVG.id "mainHex"
-    # set SVG.width (show height)
-    # set SVG.height (show height)
-  bg <- SVG.polygon
-    # set SVG.class_ "hex"
-    # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
-    # set SVG.stroke "rgb(34, 49, 63)"
-    # set SVG.stroke_width "1"
-    # set SVG.fill "rgb(129,207,224)"
-    -- # set SVGA.filter "url(#f1)"
-  let hexes = map drawHex tileIndices
-  -- return context #+ ((shadow : element bg : hexes) ++ [foreground game])
-  return context #+ ((element bg : hexes) ++ [foreground game])
-
--- background :: Game -> (UI Element, Set (UI Element))
--- background :: Game -> [UI Element]
--- background game =
---   let height = 12 * hexSize :: Integer
---   context <- SVG.svg
---     # set SVG.width (show height)
---     # set SVG.height (show height)
---   bg <- SVG.polygon
---     # set SVG.class_ "hex"
---     # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
---     # set SVG.stroke "black"
---     # set SVG.stroke_width "1"
---     # set SVG.fill "rgb(34, 167, 240)"
---   let (hexes, tiles) = foldl drawHex ([], Set.empty) tileIndices
---   let hexes = map drawHex tileIndices
---   return context #+ ((element bg) : hexes)
---   map drawHex tileIndices
-
+makeHexGroup :: Board -> [UI Element]
+makeHexGroup board = map drawHex tileIndices
   where
     drawHex index = do
       let (x, y) = hexToPixel index
@@ -291,7 +256,6 @@ background game@Game{..} = do
           # set SVG.stroke "rgb(34, 49, 63)"
           # set SVG.stroke_width "1"
           # set SVG.fill "rgb(228, 241, 254)"
-          -- # set SVGA.filter "url(#f1)"
           # set SVG.pointer_events "none"
         t <- SVG.text
           # set SVG.text_anchor "middle"
@@ -305,9 +269,8 @@ background game@Game{..} = do
           # set SVG.fill "black"
           # set SVG.pointer_events "none"
         SVG.g #+ [element hex, element circ, element t]
-
     getToken index = --show (fst $ tileToAxial index) ++ "  " ++
-                     --show (snd $ tileToAxial index)
+                   --show (snd $ tileToAxial index)
       case getTile board index of
         Paying _ tok -> show $ case tok of
           Two    -> 2 :: Int
@@ -321,6 +284,41 @@ background game@Game{..} = do
           Eleven -> 11
           Twelve -> 12
         Desert -> ""
+
+
+background :: Game -> UI Element
+background game@Game{..} = do
+  let height = 12 * hexSize
+  context <- SVG.svg
+    # set SVG.id "mainHex"
+    # set SVG.width (show height)
+    # set SVG.height (show height)
+  bg <- SVG.polygon
+    # set SVG.class_ "hex"
+    # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
+    # set SVG.stroke "rgb(34, 49, 63)"
+    # set SVG.stroke_width "1"
+    # set SVG.fill "rgb(129,207,224)"
+  let g = SVG.g # set SVG.id "hexgroup" #+ (makeHexGroup board)
+  return context #+ (element bg : g : [foreground game])
+
+-- background :: Game -> (UI Element, Set (UI Element))
+-- background :: Game -> [UI Element]
+-- background game =
+--   let height = 12 * hexSize :: Integer
+--   context <- SVG.svg
+--     # set SVG.width (show height)
+--     # set SVG.height (show height)
+--   bg <- SVG.polygon
+--     # set SVG.class_ "hex"
+--     # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
+--     # set SVG.stroke "black"
+--     # set SVG.stroke_width "1"
+--     # set SVG.fill "rgb(34, 167, 240)"
+--   let (hexes, tiles) = foldl drawHex ([], Set.empty) tileIndices
+--   let hexes = map drawHex tileIndices
+--   return context #+ ((element bg) : hexes)
+--   map drawHex tileIndices
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -361,7 +359,6 @@ sendAction :: PlayerAction -> CatanMVars -> UI Game
 sendAction action CatanMVars{..} = do
   putMVar actionVar action
   game@Game{..} <- takeMVar gameVar
-  _ <- tryTakeMVar gameVar
   renderGame game
   liftIO $ mapM_ putStrLn errorMessage
   when (action == PlayKnight) (robberSequence game)
@@ -369,15 +366,16 @@ sendAction action CatanMVars{..} = do
 
 disableClicking :: [Element] -> Board -> UI ()
 disableClicking tiles board = do
-  foldr (\tile acc -> do
-    index <- get UI.value tile
-    let color = getTileColor board (read index)
-    element tile # set SVG.fill color
-    on UI.hover tile $ \_ -> element tile # set SVG.fill color
-    on UI.leave tile $ \_ -> return ()
-    on UI.click tile $ \_ -> element tile # set SVG.fill color
-    acc) (return ()) tiles
+  -- foldr (\tile acc -> do
+  --   index <- get UI.value tile
+  --   let color = getTileColor board (read index)
+  --   element tile # set SVG.fill color
+  --   on UI.hover tile $ \_ -> element tile # set SVG.fill color
+  --   on UI.leave tile $ \_ -> return ()
+  --   on UI.click tile $ \_ -> return ()
+  --   acc) (return ()) tiles
   turnButtons True
+  resetBoard board
 
 disableTiles = do
   runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('click')})"
@@ -394,6 +392,7 @@ robberSequence :: Game -> UI ()
 robberSequence oldG@Game{..} = do
   w <- askWindow
   let CatanMVars{..} = mvars
+  _ <- tryTakeMVar gameVar
   tiles <- getElementsByClassName w "tile"
   turnButtons False
   foldr (\tile acc -> do
@@ -406,9 +405,11 @@ robberSequence oldG@Game{..} = do
     on UI.click tile $ \_ -> do
       index <- get UI.value tile
       let color = getTileColor board (read index)
+      liftIO $ print "put robber"
       putMVar robberVar (read index)
+      liftIO $ print "taking game"
       g <- takeMVar gameVar
-      liftIO $ print "took game robber"
+      liftIO $ print "took game"
       renderGame g
       -- disableTiles
       disableClicking tiles board
@@ -441,6 +442,13 @@ renderGame game = do
   _ <- (return $ fromJust $ e) #+ [foreground game]
   foldr (\x acc -> delete x >> acc) (return ()) es
 
+resetBoard :: Board -> UI ()
+resetBoard board = do
+  w <- askWindow
+  es <- getElementsByClassName w "tile"
+  e <- getElementById w "hexgroup"
+  _ <- (return $ fromJust $ e) #+ (makeHexGroup board)
+  foldr (\x acc -> delete x >> acc) (return ()) es
 
 instance MonadBase IO UI where
   liftBase = liftIO
