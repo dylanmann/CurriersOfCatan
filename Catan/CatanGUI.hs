@@ -176,15 +176,13 @@ foreground Game{..} = do
         # set SVG.r "5"
         # set SVG.cx (show x1)
         # set SVG.cy (show y1)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
+        # set SVG.stroke_width "0"
         # set SVG.fill (colorToRGB c)
        , SVG.circle
         # set SVG.r "5"
         # set SVG.cx (show x2)
         # set SVG.cy (show y2)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
+        # set SVG.stroke_width "0"
         # set SVG.fill (colorToRGB c)
        ]
 
@@ -308,11 +306,11 @@ sendAction action CatanMVars{..} = do
 robberSequence :: Game -> UI ()
 robberSequence Game{..} = do
   let CatanMVars{..} = mvars
+  _ <- tryTakeMVar gameVar
   if robberTile == tile1 then
     putMVar robberVar tile2
   else
     putMVar robberVar tile1
-  _ <- tryTakeMVar gameVar
   g <- takeMVar gameVar
   renderGame g
   r <- tryTakeMVar stealVar
@@ -331,7 +329,7 @@ endTurn m@CatanMVars{..} = do
   e <- getElementById w "player"
   let t = fromJust e
   _ <- element t # set text ("Current Player: " ++ (show currentPlayer))
-  liftIO $ threadDelay (1000 * 1000)
+  liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
 
