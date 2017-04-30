@@ -5,12 +5,14 @@ module CatanGUI (beginGUI) where
 
 import           Control.Monad(when, void)
 
+import           Data.Set (Set)
+import qualified Data.Set as Set (empty, insert)
 
 import qualified Graphics.UI.Threepenny      as UI
 import           Graphics.UI.Threepenny.Core
 import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
-import qualified Graphics.UI.Threepenny.SVG.Attributes as SVG hiding (filter)
-import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter)
+import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
+import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter, mask)
 import           Control.Concurrent.MVar.Lifted
 import           Data.Maybe(fromJust)
 import           Types
@@ -21,7 +23,7 @@ import Control.Concurrent(threadDelay)
 ------------------------------------------------------------------------------}
 -- data WindowSize = WindowSize {x :: Int, y :: Int}
 hexSize :: Num a => a
-hexSize = 80
+hexSize = 60
 
 beginGUI :: CatanMVars -> IO ()
 beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
@@ -45,19 +47,40 @@ setup CatanMVars{..} w = void $ do
   (buildRoadButton, buildRoadView) <- mkButton "build road"
   (buildSettButton, buildSettView) <- mkButton "build settlement"
   (buildCityButton, buildCityView) <- mkButton "build city"
+  (testb, testview) <- mkButton "click me"
 
   let buttons = row [element endturnview
                      , element buildRoadView
                      , element buildSettView
-                     , element buildCityView]
+                     , element buildCityView
+                     , element testview]
 
   d <- UI.div # set SVG.id "back"
+
+  -- let (board, tiles) = background game 
+  -- let board = background game
+
+  -- let tiles = background game 
+  -- let board = drawBoard tiles
+  -- let _ = setHover tiles setTileHover setTileLeave
 
   _ <- getBody w #+ [element heading
                      , element subHeading
                      , buttons
-                     , return d #+ [background game]
+                     , background game
+                     -- , return d #+ [background game]
                      ]
+
+  on UI.click testb $ \_ -> do
+    tiles <- getElementsByClassName w "tile"
+    foldr (\tile acc -> do
+      on UI.hover tile $ \_ -> do
+        element tile # set SVG.fill "white"
+      on UI.leave tile $ \_ -> do 
+        index <- get UI.value tile
+        let color = getTileColor board (read index)
+        element tile # set SVG.fill color
+      acc) (return ()) tiles
 
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
@@ -95,32 +118,32 @@ flatHexPoints x1 y1 r1 =
              angle_rad = pi / 180 * angle_deg in
          show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
 
-shadow :: UI Element
-shadow = do
-  d <- SVG.defs
-  filt <- SVG.filter
-    # set SVG.id "f1"
-    # set SVG.width "200%"
-    # set SVG.height "200%"
-  offset <- SVG.feOffset
-    # set SVG.result "offOut"
-    # set SVG.in_ "SourceGraphic"
-    # set SVG.dx "2"
-    # set SVG.dy "2"
-  mat <- SVG.feColorMatrix
-    # set SVG.result "matrixOut"
-    # set SVG.in_ "offOut"
-    # set SVG.type_ "matrix"
-    # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
-  blur <- SVG.feGaussianBlur
-    # set SVG.result "blurOut"
-    # set SVG.in_ "matrixOut"
-    # set SVG.stdDeviation "50"
-  blend <- SVG.feBlend
-    # set SVG.in_ "SourceGraphic"
-    # set SVG.in2 "blurOut"
-    # set SVG.mode "normal"
-  return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
+-- shadow :: UI Element
+-- shadow = do
+--   d <- SVG.defs
+--   filt <- SVG.filter
+--     # set SVG.id "f1"
+--     # set SVG.width "200%"
+--     # set SVG.height "200%"
+--   offset <- SVG.feOffset
+--     # set SVG.result "offOut"
+--     # set SVG.in_ "SourceGraphic"
+--     # set SVG.dx "2"
+--     # set SVG.dy "2"
+--   mat <- SVG.feColorMatrix
+--     # set SVG.result "matrixOut"
+--     # set SVG.in_ "offOut"
+--     # set SVG.type_ "matrix"
+--     # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
+--   blur <- SVG.feGaussianBlur
+--     # set SVG.result "blurOut"
+--     # set SVG.in_ "matrixOut"
+--     # set SVG.stdDeviation "50"
+--   blend <- SVG.feBlend
+--     # set SVG.in_ "SourceGraphic"
+--     # set SVG.in2 "blurOut"
+--     # set SVG.mode "normal"
+--   return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
 
 foreground :: Game -> UI Element
 foreground Game{..} = do
@@ -129,19 +152,20 @@ foreground Game{..} = do
       (x, y) = hexToPixel robberTile
   robber <- SVG.circle
     # set SVG.class_ "render"
-    # set SVG.r "40"
+    # set SVG.r (show (hexSize / 2))
     # set SVG.cx (show x)
     # set SVG.cy (show y)
     # set SVG.stroke "rgb(103, 128, 159)"
     # set SVG.stroke_width "1"
     # set SVG.fill "rgb(103, 128, 159)"
     # set SVG.opacity ".7"
+    # set SVG.pointer_events "none"
   SVG.g #+ (element robber : (bs ++ rs))
   where
     drawBuilding (Settlement c l) =
       let (x,y) = cornerToPixel l in
       SVG.circle
-        # set SVG.r "20"
+        # set SVG.r (show (hexSize/3))
         # set SVG.class_ "render"
         # set SVG.cx (show x)
         # set SVG.cy (show y)
@@ -151,7 +175,7 @@ foreground Game{..} = do
     drawBuilding (City c l) =
       let (x, y) = cornerToPixel l in
       SVG.circle
-        # set SVG.r "30"
+        # set SVG.r (show (hexSize/2))
         # set SVG.class_ "render"
         # set SVG.cx (show x)
         # set SVG.cy (show y)
@@ -187,6 +211,18 @@ foreground Game{..} = do
         # set SVG.fill (colorToRGB c)
        ]
 
+getTileColor board index =
+  let tile = getTile board index in
+  case tile of
+    Paying t _ -> case t of
+      Hills -> "rgb(179, 94, 30)"
+      Forest -> "rgb(30, 130, 76)"
+      Mountains -> "rgb(190, 144, 212)"
+      -- Mountains -> "rgb(171, 183, 183)"
+      Fields -> "rgb(135, 211, 124)"
+      Pasture -> "rgb(245, 215, 110)"
+    Desert -> "rgb(253, 227, 167)"
+
 background :: Game -> UI Element
 background game@Game{..} = do
   let height = 12 * hexSize
@@ -200,50 +236,64 @@ background game@Game{..} = do
     # set SVG.stroke "rgb(34, 49, 63)"
     # set SVG.stroke_width "1"
     # set SVG.fill "rgb(129,207,224)"
-    # set SVGA.filter "url(#f1)"
+    -- # set SVGA.filter "url(#f1)"
   let hexes = map drawHex tileIndices
-  return context #+ ((shadow: element bg : hexes) ++ [foreground game])
+  -- return context #+ ((shadow : element bg : hexes) ++ [foreground game])
+  return context #+ ((element bg : hexes) ++ [foreground game])
+
+-- background :: Game -> (UI Element, Set (UI Element))
+-- background :: Game -> [UI Element]
+-- background game = 
+--   let height = 12 * hexSize :: Integer
+--   context <- SVG.svg
+--     # set SVG.width (show height)
+--     # set SVG.height (show height)
+--   bg <- SVG.polygon
+--     # set SVG.class_ "hex"
+--     # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
+--     # set SVG.stroke "black"
+--     # set SVG.stroke_width "1"
+--     # set SVG.fill "rgb(34, 167, 240)"
+--   let (hexes, tiles) = foldl drawHex ([], Set.empty) tileIndices
+--   let hexes = map drawHex tileIndices
+--   return context #+ ((element bg) : hexes)
+--   map drawHex tileIndices
+
   where
     drawHex index = do
       let (x, y) = hexToPixel index
-      let color = getTileColor index
+      let color = getTileColor board index
       let token = getToken index
       hex <- SVG.polygon
-        # set SVG.class_ "hex"
+        # set SVG.class_ "hex tile"
         # set SVG.points (hexPoints x y hexSize)
         # set SVG.stroke "rgb(34, 49, 63)"
         # set SVG.stroke_width "2"
         # set SVG.fill color
+        # set UI.value (show index)
       if token == "" then SVG.g #+ [element hex] else do
         circ <- SVG.circle
-          # set SVG.r "30"
+          # set SVG.r "25"
           # set SVG.cx (show x)
           # set SVG.cy (show y)
           # set SVG.stroke "rgb(34, 49, 63)"
           # set SVG.stroke_width "1"
           # set SVG.fill "rgb(228, 241, 254)"
-          # set SVGA.filter "url(#f1)"
+          -- # set SVGA.filter "url(#f1)"
+          # set SVG.pointer_events "none"
         t <- SVG.text
           # set SVG.text_anchor "middle"
           # set SVG.alignment_baseline "central"
           # set SVG.x (show x)
           # set SVG.y (show y)
-          # set SVG.font_size "35"
+          # set SVG.font_size "30"
           # set SVG.font_family "Palatino"
           # set SVG.font_weight "bold"
           # set text token
           # set SVG.fill "black"
+          # set SVG.pointer_events "none"
         SVG.g #+ [element hex, element circ, element t]
-    getTileColor index =
-      let tile = getTile board index in
-      case tile of
-        Paying t _ -> case t of
-          Hills -> "rgb(179, 94, 30)"
-          Forest -> "rgb(30, 130, 76)"
-          Mountains -> "rgb(190, 144, 212)"
-          Fields -> "rgb(135, 211, 124)"
-          Pasture -> "rgb(245, 215, 110)"
-        Desert -> "rgb(253, 227, 167)"
+
     getToken index = --show (fst $ tileToAxial index) ++ "  " ++
                      --show (snd $ tileToAxial index)
       case getTile board index of
@@ -330,7 +380,7 @@ endTurn m@CatanMVars{..} = do
   e <- getElementById w "player"
   let t = fromJust e
   _ <- element t # set text ("Current Player: " ++ (show currentPlayer))
-  liftIO $ threadDelay (1000 * 1000)
+  liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
 
