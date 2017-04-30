@@ -391,7 +391,9 @@ moveRobber = do
     t <- takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put $ game{robberTile = t}
+    liftIO (print "putting game move robber in actions")
     putMVar gameVar $ game{robberTile = t}
+    liftIO (print "put game move robber in actions")
     case options of
         []  -> return ()
         l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)
