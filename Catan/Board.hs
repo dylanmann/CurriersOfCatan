@@ -276,6 +276,5 @@ tileToAxial (TileLocation l) = case l of
   (11,2) -> (1,1)
   _      -> error "No other tile location can exist"
 
-
 cornerToAxial :: CornerLocation -> (Int, Int, Bool)
 cornerToAxial (CornerLocation c) = c

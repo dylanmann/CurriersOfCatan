@@ -110,3 +110,4 @@ adjacentCornersTest = do
   return $ test $ assertBool "adjacency is commutative" (all adjacentSame cornerIndices)
   where
     adjacentSame cl = all ((cl `elem`) . adjacentCorners) (adjacentCorners cl)
+
