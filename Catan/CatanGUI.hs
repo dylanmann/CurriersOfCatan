@@ -122,18 +122,24 @@ drawResources Game{..} = do
 drawCards :: Game -> UI Element
 drawCards Game{..} = do
   let devcards = cards (getPlayer currentPlayer players)
-  let listitems = map (\c -> do
+  let playableCardsList = map (\c -> do
       button <- UI.button
-        # set UI.class_ "list-group-item"
+        # set UI.class_ "card list-group-item list-group-item-action"
         # set UI.type_ "button"
         # set UI.text_ (show c)
       return button) devcards
+  let pendingCardsList = map (\c -> do
+      button <- UI.button
+        # set UI.class_ "card list-group-item"
+        # set UI.enabled False
+        # set UI.type_ "button"
+        # set UI.text_ (show c)
+      return button) pendingCards
   cardsTitle <- UI.h4 # set text "Development cards:"
   list <- UI.div
-    # set UI.id_ "devcardsdiv"
     # set UI.class_ "list-group cards"
-    #+ ((element cardsTitle):listitems)
-  return list
+    #+ (playableCardsList ++ pendingCardsList)
+  UI.div # set UI.id_ "devcardsdiv" #+ [element cardsTitle, element list]
 
 -- is there a nicer way to do this?
 resourceRadioValues :: [Resource]
@@ -144,7 +150,7 @@ drawTrading Game{..} = do
   let fromResourceRadios = map (makeRadio "from") resourceRadioValues
   let toResourceRadios = map (makeRadio "to") resourceRadioValues
   let fromDiv = UI.div # set UI.class_ "from-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to trade"):fromResourceRadios)
-  let toDiv = UI.div # set UI.class_ "form-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to trade"):toResourceRadios)
+  let toDiv = UI.div # set UI.class_ "form-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to receive"):toResourceRadios)
   submitButton <- UI.button #. "btn btn-outline-success btn-sm" # set text "Trade With Bank"
   form <- UI.div #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
 

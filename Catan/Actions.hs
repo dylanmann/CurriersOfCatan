@@ -174,14 +174,14 @@ playerTrade rs1 c2 rs2
 tradeWithRatio :: Int -> Resource -> Resource -> Int -> MyState Bool
 tradeWithRatio ratio r1 r2 amountToTrade
   | r1 == r2 = err "you cannot trade for the same resource"
-  | amountToTrade < 2 = err "you did not offer enough resources"
+  -- | amountToTrade < 2 = err "you did not offer enough resources"
   | otherwise = do
     game@Game{..} <- S.get
     let c = currentPlayer
-        yield   = amountToTrade `quot` ratio
-        cost    = yield * ratio
+        -- yield   = amountToTrade `quot` ratio
+        cost    = amountToTrade * ratio
         spendRs = spend (replicate cost r1) c
-        getRs   = recieve (replicate yield r2) c
+        getRs   = recieve (replicate amountToTrade r2) c
         newPs   = spendRs $ getRs players
         validP  = validPlayer $ getPlayer c newPs
         update  = S.put(game { players = newPs })
