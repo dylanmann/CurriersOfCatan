@@ -36,7 +36,7 @@ bootstrapRow elems = UI.div # set UI.class_ "row" #+ elems
 
 mkButton :: String -> String -> UI Element
 mkButton buttonTitle classes = do
-  button <- UI.button #. ("btn btn-spacing " ++ classes) # set UI.type_ "button" #+ [string buttonTitle]
+  button <- UI.button #. ("btn myspacing " ++ classes) # set UI.type_ "button" #+ [string buttonTitle]
   return button
 
 setup :: CatanMVars -> Window -> UI ()
@@ -56,11 +56,13 @@ setup CatanMVars{..} w = void $ do
   buildSettButton <- mkButton "Build Settlement" "btn-outline-primary btn-sm"
   buyCardButton   <- mkButton "Buy Card" "btn-outline-primary btn-sm"
   buildCityButton <- mkButton "Build City" "btn-outline-primary btn-sm"
+  cheatButton     <- mkButton "cheater" "btn-outline-danger btn-sm"
 
   buttons <- bootstrapRow [element buildRoadButton
                   , element buildSettButton
                   , element buildCityButton
                   , element buyCardButton
+                  , element cheatButton
                   , element endturnbutton]
 
   menu <- UI.div # set UI.id_ "menu" 
@@ -102,6 +104,10 @@ setup CatanMVars{..} w = void $ do
       _ <- sendAction BuyCard mvars
       return ()
 
+  on UI.click cheatButton $ \_ -> do
+      _ <- sendAction (Cheat resourceRadioValues) mvars
+      return ()
+
 drawResources :: Game -> UI Element
 drawResources Game{..} = do
   resourcesp <- UI.p
@@ -126,14 +132,14 @@ drawCards Game{..} = do
       button <- UI.button
         # set UI.class_ "card list-group-item list-group-item-action"
         # set UI.type_ "button"
-        # set UI.text_ (show c)
+        #+ [string (show c)]
       return button) devcards
   let pendingCardsList = map (\c -> do
       button <- UI.button
         # set UI.class_ "card list-group-item"
         # set UI.enabled False
         # set UI.type_ "button"
-        # set UI.text_ (show c)
+        #+ [string ((show c) ++ " (PENDING)")]
       return button) pendingCards
   cardsTitle <- UI.h4 # set text "Development cards:"
   list <- UI.div
@@ -168,7 +174,7 @@ drawTrading Game{..} = do
     makeRadio tag res = 
       let r = show res in
         UI.label 
-          # set UI.class_ "btn btn-secondary btn-sm active btn-spacing-sm" 
+          # set UI.class_ "btn btn-secondary btn-sm active myspacing-sm" 
           #+ [UI.input # set UI.type_ "radio" # set UI.id_ (tag ++ r) # set UI.name tag # set UI.value r
           , UI.span # set UI.class_ "custom-control-indicator"
           , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]

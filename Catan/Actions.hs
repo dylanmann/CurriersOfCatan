@@ -306,19 +306,20 @@ movePendingCards = do
 -- | buys a card and places it in the player's pending cards
 buyCard :: MyState Bool
 buyCard = do
-    game@Game{..} <- S.get
     maybeCard <- drawCard
+    game@Game{..} <- S.get
     case maybeCard of
         Nothing -> err "no cards left to buy"
         Just card -> do
+            log ("drew: " ++ (show card))
             let c = currentPlayer
                 newPs = spend [Ore, Wool, Grain] c players
                 validP = validPlayer $ getPlayer c newPs
                 update = case card of
-                    VictoryPoint -> S.put(game { players = newPs,
-                                             pendingCards = card:pendingCards })
-                    _            -> S.put(game { players =
+                    VictoryPoint -> S.put(game { players =
                             updPlayer (\p -> p{cards = card:cards p}) c newPs })
+                    _            -> S.put(game { players = newPs,
+                                             pendingCards = card:pendingCards })
             if validP then update >> return True
                 else unDrawCard card >> err "cards cost Ore, Wool and Grain"
 
