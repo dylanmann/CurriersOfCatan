@@ -304,7 +304,6 @@ background game@Game{..} = do
   let g = SVG.g # set SVG.id "hexGroup" #+ (makeHexGroup board)
   return context #+ (element bg : g : [foreground game])
 
-<<<<<<< HEAD
   -- makeHabors board = 
   --   let harborCorners = 
   --     [((0,-2, True), (0,-3))
@@ -330,8 +329,6 @@ background game@Game{..} = do
   --       y' = (y + 6 * hexSize) in
   --   (round x', round y')
 
-=======
->>>>>>> e0b60fb887e18fc14a3854b8a9e6f174afa1e835
 colorToRGB :: Color -> String
 colorToRGB c = case c of
   Blue   -> "rgb(65, 131, 215)"
@@ -409,13 +406,8 @@ robberSequence Game{..} = do
       g <- takeMVar gameVar
       liftIO $ print "UI took game robber"
       renderGame g
-<<<<<<< HEAD
-      -- disableTiles
-      disableClicking tiles board
-=======
       disableClicking board
       liftIO $ threadDelay 10000
->>>>>>> e0b60fb887e18fc14a3854b8a9e6f174afa1e835
       r <- tryTakeMVar stealVar
       case r of
         Nothing -> return ()
