@@ -332,7 +332,6 @@ robberSequence :: Game -> UI ()
 robberSequence Game{..} = do
   w <- askWindow
   let CatanMVars{..} = mvars
-  _ <- tryTakeMVar gameVar
   tiles <- getElementsByClassName w "tile"
   turnButtons False
   foldr (\tile acc -> do
@@ -344,24 +343,32 @@ robberSequence Game{..} = do
       element tile # set SVG.fill color
     on UI.click tile $ \_ -> do
       index <- get UI.value tile
-      liftIO $ print "put robber"
+      liftIO $ print "UI putting robber"
       putMVar robberVar (read index)
-      liftIO $ print "taking game"
+      liftIO $ print "UI taking game robber"
+      _ <- tryTakeMVar gameVar
       g <- takeMVar gameVar
-      liftIO $ print "took game"
+      liftIO $ print "UI took game robber"
       renderGame g
       disableClicking board
+      liftIO $ threadDelay 10000
       r <- tryTakeMVar stealVar
       case r of
         Nothing -> return ()
         Just ps -> let color = snd $ head ps in
                   putMVar colorVar color
+      liftIO $ print "UI taking extra game"
+      _ <- takeMVar gameVar
+      liftIO $ print "UI took extra game"
+      return ()
     acc) (return ()) tiles
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
   w <- askWindow
+  liftIO $ print "UI taking game Action"
   g@Game{..} <- sendAction EndTurn m
+  liftIO $ print "UI took game Action"
   roll <- takeMVar rollVar
   liftIO $ do putStr "roll: "
               print roll

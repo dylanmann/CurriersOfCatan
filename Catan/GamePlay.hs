@@ -88,7 +88,10 @@ advancePlayer = do
     4  -> allocateRewards Four
     5  -> allocateRewards Five
     6  -> allocateRewards Six
-    7  -> liftIO (print "putting roll seven") >> putMVar gameVar newGame >> rollSeven
+    7  -> do liftIO (print "GAME putting roll seven")
+             putMVar gameVar newGame
+             liftIO (print "GAME put roll seven")
+             rollSeven
     8  -> allocateRewards Eight
     9  -> allocateRewards Nine
     10 -> allocateRewards Ten
@@ -118,9 +121,10 @@ takeTurn playedCard = do
   turnOver <- handleAction action
   when turnOver advancePlayer
   g <- S.get
-  liftIO (print "putting take turn")
+  liftIO (print "GAME putting take turn")
+  _ <- tryTakeMVar gameVar
   putMVar gameVar g
-  liftIO (print "put take turn")
+  liftIO (print "GAME put take turn")
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 
