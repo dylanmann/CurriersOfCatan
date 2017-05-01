@@ -56,7 +56,11 @@ setup CatanMVars{..} w = void $ do
                   , element buildCityView
                   , element testview]
 
-
+  menu <- column [element heading
+                 , element subHeading
+                 , drawResources game
+                 , drawCards game]
+            # set UI.id_ "menu"
   -- let (board, tiles) = background game
   -- let board = background game
 
@@ -64,13 +68,9 @@ setup CatanMVars{..} w = void $ do
   -- let board = drawBoard tiles
   -- let _ = setHover tiles setTileHover setTileLeave
 
-  _ <- getBody w #+ [element heading
-                     , element subHeading
-                     , drawResources game
-                     , drawCards game
+  _ <- getBody w #+ [ element menu
                      , element buttons
-                     , background game
-                     ]
+                     , background game ]
 
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
@@ -89,7 +89,7 @@ setup CatanMVars{..} w = void $ do
 drawResources :: Game -> UI Element 
 drawResources Game{..} = do
   resourcesp <- UI.p 
-    # set UI.class_ "resources"
+    # set UI.id_ "resources"
     # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   return resourcesp
 
@@ -104,6 +104,7 @@ drawCards Game{..} = do
       return button) devcards
   cardsTitle <- UI.h3 # set text "Development cards:"
   list <- UI.div
+    # set UI.id_ "devcardsdiv"
     # set UI.class_ "list-group cards"
     #+ ((element cardsTitle):listitems)
   return list
@@ -302,23 +303,30 @@ background game@Game{..} = do
   let g = SVG.g # set SVG.id "hexgroup" #+ (makeHexGroup board)
   return context #+ (element bg : g : [foreground game])
 
--- background :: Game -> (UI Element, Set (UI Element))
--- background :: Game -> [UI Element]
--- background game =
---   let height = 12 * hexSize :: Integer
---   context <- SVG.svg
---     # set SVG.width (show height)
---     # set SVG.height (show height)
---   bg <- SVG.polygon
---     # set SVG.class_ "hex"
---     # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
---     # set SVG.stroke "black"
---     # set SVG.stroke_width "1"
---     # set SVG.fill "rgb(34, 167, 240)"
---   let (hexes, tiles) = foldl drawHex ([], Set.empty) tileIndices
---   let hexes = map drawHex tileIndices
---   return context #+ ((element bg) : hexes)
---   map drawHex tileIndices
+  -- makeHabors board = 
+  --   let harborCorners = 
+  --     [((0,-2, True), (0,-3))
+  --     ,((1,-2, True), (2,-3))
+  --     ,((2,-1, True), (3,-2))
+  --     ,((2,1, True), (3,0))
+  --     ,((1,2, True), (1,2))
+  --     ,((-1,3, True), (-1,3))
+  --     ,((-3,3, True), (-3,3))
+  --     ,((-3,2, True), (-3,1))
+  --     ,((-2,0, True), (-2,-1))]
+  --   map drawHarbors harborCorners
+
+  -- drawHarbors cornerInx hexInx = 
+  --   let (x, y) = h2p hexInx 
+
+  -- h2p (q1, r1) =
+  --   let q = fromIntegral q1
+  --       r = fromIntegral r1
+  --       x = hexSize * (q + r/2.0) * sqrt 3
+  --       y = hexSize * 3.0/2.0 * r
+  --       x' = (x + 6 * hexSize)
+  --       y' = (y + 6 * hexSize) in
+  --   (round x', round y')
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -428,8 +436,9 @@ endTurn m@CatanMVars{..} = do
   liftIO $ do putStr "roll: "
               print roll
   e <- getElementById w "player"
-  let t = fromJust e
-  _ <- element t # set text ("Current Player: " ++ (show currentPlayer))
+  _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
+  re <- getElementById w "resources"
+  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
@@ -438,9 +447,12 @@ renderGame :: Game -> UI ()
 renderGame game = do
   w <- askWindow
   es <- getElementsByClassName w "render"
-  e <- getElementById w "mainHex"
+  e <- getElementById w "mainHex" 
   _ <- (return $ fromJust $ e) #+ [foreground game]
-  foldr (\x acc -> delete x >> acc) (return ()) es
+  cdiv <- getElementById w "devcardsdiv"
+  menu <- getElementById w "menu"
+  _ <- (return $ fromJust $ menu) #+ [drawCards game]
+  foldr (\x acc -> delete x >> acc) (return ()) ((fromJust cdiv):es)
 
 resetBoard :: Board -> UI ()
 resetBoard board = do
