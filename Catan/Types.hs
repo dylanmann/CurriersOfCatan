@@ -15,7 +15,7 @@ record that will be maintained and updated by a StateT.
 {-# LANGUAGE ConstraintKinds, RecordWildCards #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module Catan.Types(ProgressCard(..),
+module Types(ProgressCard(..),
              DevCard(..),
              devCards,
 
@@ -56,7 +56,7 @@ module Catan.Types(ProgressCard(..),
              CatanMVars(..),
              PlayerAction(..),
 
-             module Catan.Board)
+             module Board)
              where
 
 import qualified Data.Map as Map
@@ -64,7 +64,7 @@ import Data.Map(Map)
 import Data.Maybe(fromMaybe, fromJust)
 import Data.List as List
 import Data.Ord
-import Catan.Board
+import Board
 import Control.Concurrent.MVar.Lifted
 
 data Color = Blue | Red | Orange | White

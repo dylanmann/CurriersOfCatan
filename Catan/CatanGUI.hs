@@ -1,7 +1,7 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall -fno-warn-type-defaults #-}
 {-# LANGUAGE RecordWildCards, MultiParamTypeClasses #-}
 
-module Catan.CatanGUI (beginGUI) where
+module CatanGUI (beginGUI) where
 
 
 import Prelude hiding(log)
@@ -13,7 +13,7 @@ import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
 import           Control.Concurrent.MVar.Lifted
 import           Data.Maybe(fromJust)
-import           Catan.Types
+import           Types
 import           Control.Monad.Base
 import Control.Concurrent(threadDelay)
 
@@ -28,7 +28,9 @@ beginGUI :: CatanMVars -> IO ()
 beginGUI cmvars =
   startGUI defaultConfig { jsCustomHTML = Just "catan.html",
                            jsStatic = Just "static",
-                           jsLog = \_ -> putStr "" } (setup cmvars)
+                           jsLog = \_ -> putStr "" ,
+                           jsPort = Just 8023,
+                           jsWindowReloadOnDisconnect = True} (setup cmvars)
 
 bootstrapRow :: [UI Element] -> UI Element
 bootstrapRow elems = UI.div # set UI.class_ "row" #+ elems
@@ -123,33 +125,33 @@ drawCards :: Game -> UI Element
 drawCards g@Game{..} = do
   let devcards = cards (getPlayer currentPlayer players)
   let playableCardsList = map (\c -> do
-      button <- UI.button
-        # set UI.class_ "card list-group-item list-group-item-action"
-        # set UI.type_ "button"
-        #+ [string (show c)]
+            button <- UI.button
+              # set UI.class_ "card list-group-item list-group-item-action"
+              # set UI.type_ "button"
+              #+ [string (show c)]
 
-      on UI.click button $ \_ ->
-        case c of
-          VictoryPoint -> return ()
-          Knight -> handlePlayKnight g mvars
-          Progress Monopoly -> do
-            maybeRes <- getRadioSelection "from"
-            case maybeRes of
-              Just r -> do
-                _ <- sendAction (PlayMonopoly r) mvars
-                return ()
-              _ -> return ()
-          Progress YearOfPlenty -> do
-            maybeRes1 <- getRadioSelection "from"
-            maybeRes2 <- getRadioSelection "to"
-            case (maybeRes1, maybeRes2) of
-              (Just r1, Just r2) -> do
-                _ <- sendAction (PlayYearOfPlenty r1 r2) mvars
-                return ()
-              (_,_) -> return ()
-          Progress _ -> return ()
+            on UI.click button $ \_ ->
+              case c of
+                VictoryPoint -> return ()
+                Knight -> handlePlayKnight g mvars
+                Progress Monopoly -> do
+                  maybeRes <- getRadioSelection "from"
+                  case maybeRes of
+                    Just r -> do
+                      _ <- sendAction (PlayMonopoly r) mvars
+                      return ()
+                    _ -> return ()
+                Progress YearOfPlenty -> do
+                  maybeRes1 <- getRadioSelection "from"
+                  maybeRes2 <- getRadioSelection "to"
+                  case (maybeRes1, maybeRes2) of
+                    (Just r1, Just r2) -> do
+                      _ <- sendAction (PlayYearOfPlenty r1 r2) mvars
+                      return ()
+                    (_,_) -> return ()
+                Progress _ -> return ()
 
-      return button) devcards
+            return button) devcards
   let pendingCardsList = map (\c -> UI.button
               # set UI.class_ "card list-group-item"
               # set UI.enabled False

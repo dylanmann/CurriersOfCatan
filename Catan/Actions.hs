@@ -16,7 +16,7 @@ to the errorMessage field of the Game State record.
 {-# OPTIONS_HADDOCK prune, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards #-}
-module Catan.Actions(handleAction,
+module Actions(handleAction,
                rollSeven,
                gameOver,
 
@@ -41,7 +41,7 @@ import Control.Monad.IO.Class(liftIO)
 -- import Control.Monad(unless)
 import Data.Maybe(mapMaybe)
 
-import Catan.Types
+import Types
 
 -- | Monadic type used by the Server thread for maintaining state
 type MyState = S.StateT Game IO

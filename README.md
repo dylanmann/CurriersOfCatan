@@ -29,9 +29,11 @@ This is the main module in the program.  It lives in a completely monadic world 
 This is the Applicative Parsing library that we built up during lecture and used in hw7.  We reused much of its functionality in the implementation of the ActionParsing module.
 
 ##### **Additional Required Cabal Packages:**
-[random-shuffle](https://hackage.haskell.org/package/random-shuffle-0.0.4)
+[random-shuffle](https://hackage.haskell.org/package/random-shuffle)
 used for shuffling of initial game state.
 
-[threepenny-gui](https://hackage.haskell.org/package/threepenny-gui-0.7.0.2)
+[threepenny-gui](https://hackage.haskell.org/package/threepenny-gui)
 used for rendering the board and accepting user input in a FRP style.
 
+[lifted-base](https://hackage.haskell.org/package/lifted-base)
+used for lifting mvar operations

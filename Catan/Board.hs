@@ -16,7 +16,7 @@ touch the Board and invariants are maintained.  Also contains some setup methods
 {-# OPTIONS_HADDOCK not-home, show-extensions #-}
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 
-module Catan.Board(Terrain(..),
+module Board(Terrain(..),
 
              Token(..),
              tokenOrder,

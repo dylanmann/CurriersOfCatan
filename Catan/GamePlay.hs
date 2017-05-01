@@ -16,10 +16,9 @@ playGame runs the game.  Project was made for Advanced Programming course
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards, NamedFieldPuns #-}
 
-module Catan.GamePlay where
+module Main where
 
 import Prelude hiding(log)
-import Catan.CatanGUI
 import Control.Monad (liftM2, unless, when)
 import Control.Monad.Random.Class(getRandomR)
 import Control.Monad.Random(MonadRandom)
@@ -28,8 +27,9 @@ import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
 import Control.Concurrent.MVar.Lifted
 import Control.Concurrent(forkIO)
-import Catan.Types
-import Catan.Actions
+import Types
+import Actions
+import CatanGUI
 
 main :: IO Name
 main = playGame
@@ -167,13 +167,12 @@ playGame = do
   _ <- guiThread
   newg <- S.execStateT (advancePlayer True) game
   putMVar (gameVar mvars) newg
-  let go = do
-      CatanMVars{..} <- getCatanMVars
-      takeTurn False
-      winner <- endTurn
-      case winner of
-        Just w -> return w
-        Nothing -> go
+  let go = do CatanMVars{..} <- getCatanMVars
+              takeTurn False
+              winner <- endTurn
+              case winner of
+                Just w -> return w
+                Nothing -> go
   S.evalStateT go newg
 
 rollDice :: MyState Int
