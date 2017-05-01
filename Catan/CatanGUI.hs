@@ -27,8 +27,8 @@ hexSize = 60
 
 beginGUI :: CatanMVars -> IO ()
 beginGUI cmvars = do
-  startGUI defaultConfig { jsCustomHTML = Just "catan.html", 
-                           jsStatic = Just "static", 
+  startGUI defaultConfig { jsCustomHTML = Just "catan.html",
+                           jsStatic = Just "static",
                            jsLog = \_ -> putStr "" } (setup cmvars)
 
 bootstrapRow :: [UI Element] -> UI Element
@@ -65,15 +65,15 @@ setup CatanMVars{..} w = void $ do
                   , element cheatButton
                   , element endturnbutton]
 
-  menu <- UI.div # set UI.id_ "menu" 
+  menu <- UI.div # set UI.id_ "menu"
                  #+ [element subHeading
                  , element rollResult
                  , drawResources game
                  , drawKnights game
                  , drawTrading game
                  , drawCards game]
-  
-  sidebar <- UI.div # set UI.class_ "col-lg-5" 
+
+  sidebar <- UI.div # set UI.class_ "col-lg-5"
                     #+ [ element menu
                     , UI.div # set UI.class_ "row" #+ [UI.h4 # set text "Actions:"]
                     , element buttons
@@ -101,7 +101,7 @@ setup CatanMVars{..} w = void $ do
       \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildCity index) mvars
                                         return ())
 
-  on UI.click buyCardButton $ \_ -> do 
+  on UI.click buyCardButton $ \_ -> do
       _ <- sendAction BuyCard mvars
       return ()
 
@@ -117,14 +117,14 @@ drawResources Game{..} = do
   return resourcesp
 
 drawKnights :: Game -> UI Element
-drawKnights Game{..} = do 
+drawKnights Game{..} = do
   knightsp <- UI.p
     # set UI.id_ "knights"
     # set UI.text ("Knights: " ++ (show (knights (getPlayer currentPlayer players))))
   return knightsp
 
 drawCards :: Game -> UI Element
-drawCards Game{..} = do
+drawCards g@Game{..} = do
   let devcards = cards (getPlayer currentPlayer players)
   let playableCardsList = map (\c -> do
       button <- UI.button
@@ -132,11 +132,10 @@ drawCards Game{..} = do
         # set UI.type_ "button"
         #+ [string (show c)]
 
-      on UI.click button $ \_ -> 
-        case c of 
+      on UI.click button $ \_ ->
+        case c of
           VictoryPoint -> return ()
-          Knight -> do
-            handlePlayKnight mvars
+          Knight -> handlePlayKnight g mvars
           Progress _ -> return ()
 
       return button) devcards
@@ -166,32 +165,32 @@ drawTrading Game{..} = do
   submitButton <- UI.button #. "btn btn-outline-success btn-sm" # set text "Trade With Bank"
   form <- UI.div #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
 
-  on UI.click submitButton $ \_ -> do 
+  on UI.click submitButton $ \_ -> do
       maybeFrom <- foldr (checkRadio "from") (return Nothing) resourceRadioValues
       maybeTo <- foldr (checkRadio "to") (return Nothing) resourceRadioValues
-      case (maybeFrom, maybeTo) of 
-        (Just r1, Just r2) -> do 
+      case (maybeFrom, maybeTo) of
+        (Just r1, Just r2) -> do
           _ <- sendAction (TradeWithBank r1 r2 1) mvars
           return ()
         (_, _) -> return ()
 
   return form
   where
-    makeRadio tag res = 
+    makeRadio tag res =
       let r = show res in
-        UI.label 
-          # set UI.class_ "btn btn-secondary btn-sm active myspacing-sm" 
+        UI.label
+          # set UI.class_ "btn btn-secondary btn-sm active myspacing-sm"
           #+ [UI.input # set UI.type_ "radio" # set UI.id_ (tag ++ r) # set UI.name tag # set UI.value r
           , UI.span # set UI.class_ "custom-control-indicator"
           , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]
 
-    checkRadio tag res acc = do 
-      let r = show res 
+    checkRadio tag res acc = do
+      let r = show res
       w <- askWindow
-      let radioid = tag ++ r 
-      maybeElem <- getElementById w radioid 
-      let e = fromJust maybeElem 
-      checked <- get UI.checked e 
+      let radioid = tag ++ r
+      maybeElem <- getElementById w radioid
+      let e = fromJust maybeElem
+      checked <- get UI.checked e
       if checked then return (Just res) else acc
 
 
@@ -364,10 +363,10 @@ background game@Game{..} = do
   let elemList = ((element bg) : (harbors ++ (g : [foreground game])))
   return context #+ elemList
   where
-    makeHabors cornerLoc acc = 
-      case (getCorner board cornerLoc) of 
+    makeHabors cornerLoc acc =
+      case (getCorner board cornerLoc) of
         (_, Just GenericHarbor) ->
-          let (x,y) = cornerToPixel cornerLoc 
+          let (x,y) = cornerToPixel cornerLoc
               h = SVG.circle
                 # set SVG.r (show (hexSize/2))
                 # set SVG.cx (show x)
@@ -378,7 +377,7 @@ background game@Game{..} = do
           in
           h:acc
         (_, Just (SpecialHarbor r)) ->
-          let (x,y) = cornerToPixel cornerLoc 
+          let (x,y) = cornerToPixel cornerLoc
               h = SVG.circle
                 # set SVG.r (show (hexSize/2))
                 # set SVG.cx (show x)
@@ -390,9 +389,9 @@ background game@Game{..} = do
           h:acc
         (_, Nothing) -> acc
 
-    getHarborColor l = case (getCorner board l) of 
+    getHarborColor l = case (getCorner board l) of
                         (_, Just GenericHarbor) -> "rgb(108, 122, 137)"
-                        (_, Just (SpecialHarbor r)) -> 
+                        (_, Just (SpecialHarbor r)) ->
                           case r of
                             Brick -> "rgb(179, 94, 30)"
                             Lumber -> "rgb(30, 130, 76)"
@@ -434,10 +433,12 @@ hexToPixel cl =
 sendAction :: PlayerAction -> CatanMVars -> UI Game
 sendAction action CatanMVars{..} = do
   putMVar actionVar action
+  log "taking sendaction"
   game@Game{..} <- takeMVar gameVar
+  log "took sendaction"
   renderGame game
-  liftIO $ mapM_ putStrLn errorMessage
-  -- when (action == PlayKnight) (robberSequence game)
+  mapM_ log errorMessage
+  when (action == PlayKnight) (robberSequence game)
   return game
 
 
@@ -491,12 +492,11 @@ robberSequence Game{..} = do
       return ()
     acc) (return ()) tiles
 
-handlePlayKnight :: CatanMVars -> UI ()
-handlePlayKnight m@CatanMVars{..} = do
-  log "UI taking game Action"
-  g@Game{..} <- sendAction PlayKnight m
-  log "UI took game Action"
-  -- liftIO $ threadDelay (400 * 1000)
+handlePlayKnight :: Game -> CatanMVars -> UI ()
+handlePlayKnight g CatanMVars{..} = do
+  log "putting playknight"
+  putMVar actionVar PlayKnight
+  log "put playknight"
   robberSequence g
 
 endTurn :: CatanMVars -> UI ()
