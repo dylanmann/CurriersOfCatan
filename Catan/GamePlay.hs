@@ -86,6 +86,7 @@ advancePlayer firstTurn = do
   roll <- rollDice
   if firstTurn && roll == 7 then advancePlayer True else do
     putMVar rollVar roll
+    movePendingCards
     game <- S.get
     let newGame = game{currentPlayer = nextPlayer $ currentPlayer game}
     S.put newGame
