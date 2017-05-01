@@ -244,7 +244,7 @@ playRoadBuilding c1 c2 c3 c4 = do
                         S.put(game { roads = r2:newRoads,
                                      longestRoad = newLongestRoad longestRoad newRoads})
                         return True
-                        else err "second road is invalid"
+                        else err2 "second road is invalid"
                 else if v2 then do
                     let newRoads = r2:roads
                     valid1 <- validRoad r1 newRoads
@@ -252,9 +252,13 @@ playRoadBuilding c1 c2 c3 c4 = do
                         S.put(game { roads = r1:newRoads,
                                   longestRoad = newLongestRoad longestRoad newRoads})
                         return True
-                        else err "first road is invalid"
-                    else err "invalid road choices"
-            (_, _) -> err "you cannot build roads there"
+                        else err2 "first road is invalid"
+                    else err2 "invalid road choices"
+            (_, _) -> err2 "you cannot build roads there"
+    where err2 str = do g@Game{..} <- S.get
+                        S.put(g { players =
+                            updPlayer (\p -> p{cards = Progress RoadBuilding:cards p}) currentPlayer players })
+                        err str
 
 playYearOfPlenty :: Resource -> Resource -> MyState Bool
 playYearOfPlenty r1 r2 = do
