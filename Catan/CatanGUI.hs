@@ -136,6 +136,13 @@ drawCards g@Game{..} = do
         case c of
           VictoryPoint -> return ()
           Knight -> handlePlayKnight g mvars
+          Progress Monopoly -> do
+            maybeRes <- getRadioSelection "from"
+            case maybeRes of 
+              Just r -> do
+                _ <- sendAction (PlayMonopoly r) mvars
+                return ()
+              _ -> return ()
           Progress _ -> return ()
 
       return button) devcards
@@ -156,6 +163,18 @@ drawCards g@Game{..} = do
 resourceRadioValues :: [Resource]
 resourceRadioValues = [Brick, Lumber, Ore, Grain, Wool]
 
+getRadioSelection :: String -> UI (Maybe Resource)
+getRadioSelection tag = foldr (checkRadio tag) (return Nothing) resourceRadioValues
+  where 
+    checkRadio tag res acc = do
+      let r = show res
+      w <- askWindow
+      let radioid = tag ++ r
+      maybeElem <- getElementById w radioid
+      let e = fromJust maybeElem
+      checked <- get UI.checked e
+      if checked then return (Just res) else acc
+
 drawTrading :: Game -> UI Element
 drawTrading Game{..} = do
   let fromResourceRadios = map (makeRadio "from") resourceRadioValues
@@ -166,8 +185,8 @@ drawTrading Game{..} = do
   form <- UI.div #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
 
   on UI.click submitButton $ \_ -> do
-      maybeFrom <- foldr (checkRadio "from") (return Nothing) resourceRadioValues
-      maybeTo <- foldr (checkRadio "to") (return Nothing) resourceRadioValues
+      maybeFrom <- getRadioSelection "from"
+      maybeTo <- getRadioSelection "to"
       case (maybeFrom, maybeTo) of
         (Just r1, Just r2) -> do
           _ <- sendAction (TradeWithBank r1 r2 1) mvars
@@ -183,15 +202,6 @@ drawTrading Game{..} = do
           #+ [UI.input # set UI.type_ "radio" # set UI.id_ (tag ++ r) # set UI.name tag # set UI.value r
           , UI.span # set UI.class_ "custom-control-indicator"
           , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]
-
-    checkRadio tag res acc = do
-      let r = show res
-      w <- askWindow
-      let radioid = tag ++ r
-      maybeElem <- getElementById w radioid
-      let e = fromJust maybeElem
-      checked <- get UI.checked e
-      if checked then return (Just res) else acc
 
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
@@ -438,7 +448,7 @@ sendAction action CatanMVars{..} = do
   log "took sendaction"
   renderGame game
   mapM_ log errorMessage
-  when (action == PlayKnight) (robberSequence game)
+  when (action == PlayKnight) (robberSequence False game)
   return game
 
 
@@ -454,8 +464,8 @@ turnButtons b = do
   es <- getElementsByClassName w "button"
   foldr (\button acc -> element button # set UI.enabled b >> acc) (return ()) es
 
-robberSequence :: Game -> UI ()
-robberSequence Game{..} = do
+robberSequence :: Bool -> Game -> UI ()
+robberSequence isKnight Game{..} = do
   log "robber sequence"
   w <- askWindow
   let CatanMVars{..} = mvars
@@ -486,10 +496,15 @@ robberSequence Game{..} = do
                   putMVar colorVar color
       log "UI taking extra game"
       _ <- takeMVar gameVar
-      e <- getElementById w "roll"
-      _ <- element (fromJust e) # set text "Roll: 7"
       log "UI took extra game"
-      return ()
+      if isKnight then do
+        log "UI taking extra extra game"
+        _ <- takeMVar gameVar
+        log "UI took extra extra game"
+      else do
+        e <- getElementById w "roll"
+        _ <- element (fromJust e) # set text "Roll: 7"
+        return ()
     acc) (return ()) tiles
 
 handlePlayKnight :: Game -> CatanMVars -> UI ()
@@ -497,7 +512,7 @@ handlePlayKnight g CatanMVars{..} = do
   log "putting playknight"
   putMVar actionVar PlayKnight
   log "put playknight"
-  robberSequence g
+  robberSequence True g
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
@@ -513,7 +528,7 @@ endTurn m@CatanMVars{..} = do
   e <- getElementById w "player"
   _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
   liftIO $ threadDelay (400 * 1000)
-  when (roll == 7) $ robberSequence g
+  when (roll == 7) $ robberSequence False g
 
 makeCorners :: (CornerLocation -> UI ()) -> UI ()
 makeCorners onClick = do

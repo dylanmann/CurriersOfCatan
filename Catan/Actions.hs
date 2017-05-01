@@ -218,8 +218,8 @@ playCard card = do
 -- | play a given progress card, given that it is valid
 playMonopoly :: Resource -> MyState Bool
 playMonopoly r = do
-    success <- playCard $ Progress RoadBuilding
-    if success then return False else do
+    success <- playCard $ Progress Monopoly
+    if not success then return False else do
         game@Game{..} <- S.get
         let newPs = foldr (step currentPlayer) players (allPlayers players)
         S.put $ game {players = newPs}
@@ -231,7 +231,7 @@ playMonopoly r = do
 playRoadBuilding :: Road -> Road -> MyState Bool
 playRoadBuilding r1 r2 = do
     success <- playCard $ Progress RoadBuilding
-    if success then return False else do
+    if not success then return False else do
         game@Game{..} <- S.get
         let newRoads = r1:r2:roads
         v1 <- validRoad r1
@@ -245,7 +245,7 @@ playRoadBuilding r1 r2 = do
 playYearOfPlenty :: Resource -> Resource -> MyState Bool
 playYearOfPlenty r1 r2 = do
     success <- playCard $ Progress RoadBuilding
-    if success then return False else do
+    if not success then return False else do
         game@Game{..} <- S.get
         S.put(game{players = recieve [r1,r2] currentPlayer players})
         return True

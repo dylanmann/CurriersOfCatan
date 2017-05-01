@@ -1,0 +1,44 @@
+4/11 notes:
+- record wildcards
+{#LANGUAGE RecordWildcards#}
+do MkGame {..} <- get
+-- brings all the fields as variables into scope
+-- lens library
+e.g. game^.players.bluePlayer
+(+=) :: Lens s' a -> a -> State s ()
+turns += 1
+
+view _1
+_1 .~ new
+_1 %~ (+1)
+
+Defining 
+Rec{_field :: ...}
+mkLenses ''Rectype
+
+generally obj ^. lens
+                 (getter)
+
+class Functor f where
+  fmap:: (a -> b) -> f a -> f b
+
+f :: *-> *
+
+(,) :: *-> * -> *
+
+instance Functor ((,) e) where
+  fmap :: (a -> b) -> (e, a) -> (e, b)
+
+BOARD:
+Map (Int, Int) -> Tile ?
+Make module to ensure there are only valid coordinates, other stuff
+
+Vectors?
+
+module M (..) where
+fn, val
+Type () means only import type
+Type (..) means import type and all functions
+mkBoard :: (...) -> Maybe Board
+
+Use maps more? Maybe for players
