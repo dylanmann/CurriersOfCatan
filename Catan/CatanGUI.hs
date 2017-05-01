@@ -492,5 +492,5 @@ resetBoard board = do
 instance MonadBase IO UI where
   liftBase = liftIO
 
-log :: String -> UI ()
-log str = log $ "[UI]  " ++ str
+log :: Show a => a -> UI ()
+log str = liftIO $ print $ "[UI]  " ++ (show str)

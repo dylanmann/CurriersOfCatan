@@ -382,8 +382,8 @@ cheat rs = do
     S.put(game{players = recieve rs currentPlayer players})
     return True
 
-log :: String -> MyState ()
-log str = liftIO $ print $ "[GAME]  " ++ str
+log :: Show a => a -> MyState ()
+log str = liftIO $ print $ "[GAME]  " ++ (show str)
 
 -- | prompts user thread for input and moves the robber to that location, with all the effects
 moveRobber :: MyState ()

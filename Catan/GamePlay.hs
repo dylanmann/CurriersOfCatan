@@ -74,8 +74,8 @@ initialize = do
   return $
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
-log :: String -> MyState ()
-log = liftIO $ print $ "[GAME]  " ++ str
+log :: Show a => a -> MyState ()
+log str = liftIO $ print $ "[GAME]  " ++ (show str)
 
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
 advancePlayer :: MyState ()
@@ -125,7 +125,7 @@ takeTurn playedCard = do
   turnOver <- handleAction action
   when turnOver advancePlayer
   g <- S.get
-  log " putting take turn"
+  log "putting take turn"
   _ <- tryTakeMVar gameVar
   putMVar gameVar g
   log "put take turn"
