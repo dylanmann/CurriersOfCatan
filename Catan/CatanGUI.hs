@@ -5,14 +5,10 @@ module CatanGUI (beginGUI) where
 
 import           Control.Monad(when, void)
 
-import           Data.Set (Set)
-import qualified Data.Set as Set (empty, insert)
-
 import qualified Graphics.UI.Threepenny      as UI
 import           Graphics.UI.Threepenny.Core
 import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
-import qualified Graphics.UI.Threepenny.SVG.Attributes as SVGA (filter, mask)
 import           Control.Concurrent.MVar.Lifted
 import           Data.Maybe(fromJust)
 import           Types
@@ -48,13 +44,11 @@ setup CatanMVars{..} w = void $ do
   (buildRoadButton, buildRoadView) <- mkButton "build road"
   (buildSettButton, buildSettView) <- mkButton "build settlement"
   (buildCityButton, buildCityView) <- mkButton "build city"
-  (testb, testview) <- mkButton "click me"
 
   buttons <- row [element endturnview
                   , element buildRoadView
                   , element buildSettView
-                  , element buildCityView
-                  , element testview]
+                  , element buildCityView]
 
 
   -- let (board, tiles) = background game
@@ -72,17 +66,22 @@ setup CatanMVars{..} w = void $ do
 
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
-  on UI.click buildRoadButton $ \_ -> do _ <- sendAction (Cheat [Brick, Lumber]) mvars
-                                         _ <- sendAction (BuildRoad (fromJust $ makeCornerLocation 2 (-1) False) (fromJust $ makeCornerLocation 2 0 True)) mvars
-                                         return ()
+  on UI.click buildRoadButton $
+      \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (Cheat [Lumber, Brick]) mvars
+                                                          _ <- sendAction (BuildRoad i1 i2) mvars
+                                                          return ())
 
-  on UI.click buildSettButton $ \_ -> do _ <- sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
-                                         _ <- sendAction (BuildSettlement (fromJust $ makeCornerLocation 2 0 True)) mvars
-                                         return ()
 
-  on UI.click buildCityButton $ \_ -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
-                                         _ <- sendAction (BuildCity (fromJust $ makeCornerLocation 2 0 True)) mvars
-                                         return ()
+  on UI.click buildSettButton $
+      \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
+                                        _ <- sendAction (BuildSettlement index) mvars
+                                        return ())
+
+  on UI.click buildCityButton $
+      \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
+                                        _ <- sendAction (BuildCity index) mvars
+                                        return ())
+
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
@@ -197,6 +196,8 @@ foreground Game{..} = do
         # set SVG.fill (colorToRGB c)
        ]
 
+
+getTileColor :: Board -> TileLocation -> String
 getTileColor board index =
   let tile = getTile board index in
   case tile of
@@ -274,26 +275,8 @@ background game@Game{..} = do
     # set SVG.stroke "rgb(34, 49, 63)"
     # set SVG.stroke_width "1"
     # set SVG.fill "rgb(129,207,224)"
-  let g = SVG.g # set SVG.id "hexgroup" #+ (makeHexGroup board)
+  let g = SVG.g # set SVG.id "hexGroup" #+ (makeHexGroup board)
   return context #+ (element bg : g : [foreground game])
-
--- background :: Game -> (UI Element, Set (UI Element))
--- background :: Game -> [UI Element]
--- background game =
---   let height = 12 * hexSize :: Integer
---   context <- SVG.svg
---     # set SVG.width (show height)
---     # set SVG.height (show height)
---   bg <- SVG.polygon
---     # set SVG.class_ "hex"
---     # set SVG.points (flatHexPoints (height `div` 2) (height `div` 2) (height `div` 2))
---     # set SVG.stroke "black"
---     # set SVG.stroke_width "1"
---     # set SVG.fill "rgb(34, 167, 240)"
---   let (hexes, tiles) = foldl drawHex ([], Set.empty) tileIndices
---   let hexes = map drawHex tileIndices
---   return context #+ ((element bg) : hexes)
---   map drawHex tileIndices
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -325,11 +308,6 @@ hexToPixel cl =
         y' = (y + 6 * hexSize) in
     (round x', round y')
 
-tile1 :: TileLocation
-tile1 = fromJust (makeTileLocation 0 1)
-tile2::TileLocation
-tile2 = fromJust (makeTileLocation 0 0)
-
 sendAction :: PlayerAction -> CatanMVars -> UI Game
 sendAction action CatanMVars{..} = do
   putMVar actionVar action
@@ -339,16 +317,8 @@ sendAction action CatanMVars{..} = do
   when (action == PlayKnight) (robberSequence game)
   return game
 
-disableClicking :: [Element] -> Board -> UI ()
-disableClicking tiles board = do
-  -- foldr (\tile acc -> do
-  --   index <- get UI.value tile
-  --   let color = getTileColor board (read index)
-  --   element tile # set SVG.fill color
-  --   on UI.hover tile $ \_ -> element tile # set SVG.fill color
-  --   on UI.leave tile $ \_ -> return ()
-  --   on UI.click tile $ \_ -> return ()
-  --   acc) (return ()) tiles
+disableClicking :: Board -> UI ()
+disableClicking board = do
   turnButtons True
   resetBoard board
 
@@ -359,7 +329,7 @@ turnButtons b = do
   foldr (\button acc -> element button # set UI.enabled b >> acc) (return ()) es
 
 robberSequence :: Game -> UI ()
-robberSequence oldG@Game{..} = do
+robberSequence Game{..} = do
   w <- askWindow
   let CatanMVars{..} = mvars
   _ <- tryTakeMVar gameVar
@@ -374,14 +344,13 @@ robberSequence oldG@Game{..} = do
       element tile # set SVG.fill color
     on UI.click tile $ \_ -> do
       index <- get UI.value tile
-      let color = getTileColor board (read index)
       liftIO $ print "put robber"
       putMVar robberVar (read index)
       liftIO $ print "taking game"
       g <- takeMVar gameVar
       liftIO $ print "took game"
       renderGame g
-      disableClicking tiles board
+      disableClicking board
       r <- tryTakeMVar stealVar
       case r of
         Nothing -> return ()
@@ -402,6 +371,41 @@ endTurn m@CatanMVars{..} = do
   liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
+makeCorners :: (CornerLocation -> UI ()) -> UI ()
+makeCorners onClick = do
+  w <- askWindow
+  e <- getElementById w "mainHex"
+  _ <- (return $ fromJust $ e) #+ (map draw cornerIndices)
+  turnButtons False
+  return ()
+  where draw l = do
+          let (x,y) = cornerToPixel l
+          corner <- SVG.circle
+            # set SVG.r (show (hexSize/2))
+            # set SVG.class_ "corner"
+            # set SVG.cx (show x)
+            # set SVG.cy (show y)
+            # set SVG.stroke_width "0"
+            # set SVG.fill "rgb(108, 122, 137)"
+            # set SVG.fill_opacity "0.0"
+            # set UI.value (show l)
+          on UI.hover corner $ \_ ->
+              element corner # set SVG.fill_opacity "0.5"
+          on UI.leave corner $ \_ ->
+              element corner # set SVG.fill_opacity "0.0"
+          on UI.click corner $ \_ -> do
+              index <- get UI.value corner
+              deleteCorners
+              onClick (read index)
+              turnButtons True
+          element corner
+
+
+deleteCorners :: UI ()
+deleteCorners = do
+  w <- askWindow
+  es <- getElementsByClassName w "corner"
+  foldr (\x acc -> delete x >> acc) (return ()) es
 
 renderGame :: Game -> UI ()
 renderGame game = do
@@ -415,7 +419,7 @@ resetBoard :: Board -> UI ()
 resetBoard board = do
   w <- askWindow
   es <- getElementsByClassName w "tile"
-  e <- getElementById w "hexgroup"
+  e <- getElementById w "hexGroup"
   _ <- (return $ fromJust $ e) #+ (makeHexGroup board)
   foldr (\x acc -> delete x >> acc) (return ()) es
 
