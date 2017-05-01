@@ -165,7 +165,6 @@ neighbors = map getNeighbors cornerIndices
 allCorners :: IO [Corner]
 allCorners = do h <- harbors
                 return $ zip neighbors $ (replicate 24 Nothing) ++ makeHarbors h
-                -- return $ zip neighbors $ (replicate 30 Nothing ) ++ makeHarbors h
 
 makeHarbors :: [Harbor] -> [Maybe Harbor]
 makeHarbors [] = []

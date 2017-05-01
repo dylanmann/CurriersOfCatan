@@ -143,6 +143,13 @@ drawCards g@Game{..} = do
                 _ <- sendAction (PlayMonopoly r) mvars
                 return ()
               _ -> return ()
+          Progress YearOfPlenty -> do
+            maybeRes1 <- getRadioSelection "from"
+            maybeRes2 <- getRadioSelection "to"
+            case (maybeRes1, maybeRes2) of 
+              (Just r1, Just r2) -> do
+                _ <- sendAction (PlayYearOfPlenty r1 r2) mvars
+                return ()
           Progress _ -> return ()
 
       return button) devcards
@@ -512,7 +519,7 @@ handlePlayKnight g CatanMVars{..} = do
   log "putting playknight"
   putMVar actionVar PlayKnight
   log "put playknight"
-  robberSequence g
+  robberSequence True g
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do

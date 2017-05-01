@@ -247,7 +247,7 @@ playRoadBuilding c1 c2 c3 c4 = do
 
 playYearOfPlenty :: Resource -> Resource -> MyState Bool
 playYearOfPlenty r1 r2 = do
-    success <- playCard $ Progress RoadBuilding
+    success <- playCard $ Progress YearOfPlenty
     if not success then return False else do
         game@Game{..} <- S.get
         S.put(game{players = recieve [r1,r2] currentPlayer players})
