@@ -228,19 +228,22 @@ playMonopoly r = do
           allR p = filter (== r) (allResources p)
           step c (c2,p) = recieve (allR p) c . spend (allR p) c2
 
-playRoadBuilding :: Road -> Road -> MyState Bool
-playRoadBuilding r1 r2 = do
+playRoadBuilding :: CornerLocation -> CornerLocation -> CornerLocation -> CornerLocation -> MyState Bool
+playRoadBuilding c1 c2 c3 c4 = do
     success <- playCard $ Progress RoadBuilding
     if success then return False else do
         game@Game{..} <- S.get
-        let newRoads = r1:r2:roads
-        v1 <- validRoad r1
-        v2 <- validRoad r2
-        if v1 && v2 then do
-            S.put(game { roads = newRoads,
-                         longestRoad = newLongestRoad longestRoad newRoads})
-            return True
-        else err "invalid road choices"
+        case (mkRoad (c1, c2, currentPlayer), mkRoad (c3, c4, currentPlayer)) of
+            (Just r1, Just r2) -> do
+                v1 <- validRoad r1
+                v2 <- validRoad r2
+                let newRoads = r1:r2:roads
+                if v1 && v2 then do
+                    S.put(game { roads = newRoads,
+                                 longestRoad = newLongestRoad longestRoad newRoads})
+                    return True
+                else err "invalid road choices"
+            (_, _) -> err "you cannot build roads there"
 
 playYearOfPlenty :: Resource -> Resource -> MyState Bool
 playYearOfPlenty r1 r2 = do
@@ -411,19 +414,19 @@ moveRobber = do
 -- | delegates the game logic for a given player action.  Returns whether the player's turn is over
 handleAction :: PlayerAction -> MyState Bool
 handleAction a = case a of
-        BuildRoad l1 l2           -> handle $ buildRoad l1 l2
-        BuildCity l               -> handle $ buildCity l
-        BuildSettlement l         -> handle $ buildSett l
-        PlayMonopoly r            -> handle $ playMonopoly r
-        PlayKnight                -> handle $ playCard Knight
-        PlayYearOfPlenty r1 r2    -> handle $ playYearOfPlenty r1 r2
-        PlayRoadBuilding r1 r2    -> handle $ playRoadBuilding r1 r2
-        BuyCard                   -> handle buyCard
-        TradeWithBank r1 r2 i     -> handle $ genericTrade r1 r2 i
-        TradeWithPlayer rs1 c rs2 -> handle $ playerTrade rs1 c rs2
-        EndTurn                   -> return True
-        Cheat rs                  -> handle $ cheat rs
-        EndGame                   -> error "over"
+        BuildRoad l1 l2              -> handle $ buildRoad l1 l2
+        BuildCity l                  -> handle $ buildCity l
+        BuildSettlement l            -> handle $ buildSett l
+        PlayMonopoly r               -> handle $ playMonopoly r
+        PlayKnight                   -> handle $ playCard Knight
+        PlayYearOfPlenty r1 r2       -> handle $ playYearOfPlenty r1 r2
+        PlayRoadBuilding l1 l2 l3 l4 -> handle $ playRoadBuilding l1 l2 l3 l4
+        BuyCard                      -> handle buyCard
+        TradeWithBank r1 r2 i        -> handle $ genericTrade r1 r2 i
+        TradeWithPlayer rs1 c rs2    -> handle $ playerTrade rs1 c rs2
+        EndTurn                      -> return True
+        Cheat rs                     -> handle $ cheat rs
+        EndGame                      -> error "over"
 
 
 handle :: MyState Bool -> MyState Bool

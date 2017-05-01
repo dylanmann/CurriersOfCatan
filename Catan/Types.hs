@@ -295,7 +295,7 @@ data PlayerAction = BuildRoad CornerLocation CornerLocation
                   | BuildSettlement CornerLocation
                   | PlayMonopoly Resource
                   | PlayYearOfPlenty Resource Resource
-                  | PlayRoadBuilding Road Road
+                  | PlayRoadBuilding CornerLocation CornerLocation CornerLocation CornerLocation
                   | PlayKnight
                   | BuyCard
                   | TradeWithBank Resource Resource Int

@@ -498,6 +498,8 @@ handlePlayKnight g CatanMVars{..} = do
   putMVar actionVar PlayKnight
   log "put playknight"
   robberSequence g
+  g2 <- takeMVar gameVar
+  renderGame g2
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
