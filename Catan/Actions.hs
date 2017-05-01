@@ -30,6 +30,7 @@ module Actions(handleAction,
 
                movePendingCards)
                where
+import Prelude hiding(log)
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
@@ -82,7 +83,7 @@ allocateRewards roll = do
     game@Game{..} <- S.get
     let rewards = map (rollRewards board roll robberTile) buildings
         step (c, rs) = recieve rs c
-    liftIO $ print rewards
+    log rewards
     S.put (game {players = foldr step players rewards})
 
 -- | constructs a road at the given corner locations if valid
@@ -357,9 +358,7 @@ getCatanMVars = do
 rollSeven :: MyState ()
 rollSeven = do CatanMVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
-               liftIO $ do
-                    putStr "penalty victims: "
-                    print victims
+               log $ "penalty victims: " ++ (show victims)
                moveRobber
 
 -- | method that asks the user which of the possibilities they would like to steal
@@ -383,6 +382,11 @@ cheat rs = do
     S.put(game{players = recieve rs currentPlayer players})
     return True
 
+log :: Show a => a -> MyState ()
+log str = liftIO $ do putStr $ "[GAME]  "
+                      print str
+
+
 -- | prompts user thread for input and moves the robber to that location, with all the effects
 moveRobber :: MyState ()
 moveRobber = do
@@ -391,9 +395,9 @@ moveRobber = do
     t <- takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put $ game{robberTile = t}
-    liftIO (print "putting game move robber in actions")
+    log "putting game move robber in actions"
     putMVar gameVar $ game{robberTile = t}
-    liftIO (print "put game move robber in actions")
+    log "put game move robber in actions"
     case options of
         []  -> return ()
         l   -> stealFromOneOf (zip (map (name . flip getPlayer players) l) l)

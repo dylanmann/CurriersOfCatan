@@ -3,6 +3,8 @@
 
 module CatanGUI (beginGUI) where
 
+
+import Prelude hiding(log)
 import           Control.Monad(when, void)
 
 import qualified Graphics.UI.Threepenny      as UI
@@ -11,6 +13,7 @@ import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
 import           Control.Concurrent.MVar.Lifted
 import           Data.Maybe(fromJust)
+import           Data.List(intercalate)
 import           Types
 import           Control.Monad.Base
 import Control.Concurrent(threadDelay)
@@ -23,78 +26,80 @@ hexSize :: Num a => a
 hexSize = 60
 
 beginGUI :: CatanMVars -> IO ()
-beginGUI cmvars = startGUI defaultConfig { jsLog = \_ -> putStr "" } (setup cmvars)
+beginGUI cmvars = do
+  startGUI defaultConfig { jsCustomHTML = Just "catan.html", 
+                           jsStatic = Just "static", 
+                           jsLog = \_ -> putStr "" } (setup cmvars)
 
-mkButton :: String -> UI (Element, Element)
-mkButton buttonTitle = do
-  button <- UI.button #. "button actionButton" #+ [string buttonTitle]
-  view   <- UI.p #+ [element button]
-  return (button, view)
+bootstrapRow :: [UI Element] -> UI Element
+bootstrapRow elems = UI.div # set UI.class_ "row" #+ elems
+
+mkButton :: String -> String -> UI Element
+mkButton buttonTitle classes = do
+  button <- UI.button #. ("btn btn-spacing " ++ classes) # set UI.type_ "button" #+ [string buttonTitle]
+  return button
 
 setup :: CatanMVars -> Window -> UI ()
 setup CatanMVars{..} w = void $ do
   _ <- return w # set title "Curriers of Catan"
 
+  roll <- takeMVar rollVar
   game@Game{..} <- takeMVar gameVar
 
   heading <- UI.h1 # set text "Curriers of Catan"
-  subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer)
+  subHeading <- UI.h2 # set text ("Current Player: " ++ (show currentPlayer))
                       # set UI.id_ "player"
-  rollResult <- UI.h3 # set text "Press \"Start Game\" to begin the game" # set UI.id_ "roll"
+  rollResult <- UI.h4 # set text "Roll: " # set UI.id_ "roll"
 
-  (endturnbutton, endturnview)     <- mkButton "Start Game"
-  (buildRoadButton, buildRoadView) <- mkButton "build road"
-  (buildSettButton, buildSettView) <- mkButton "build settlement"
-  (buildCityButton, buildCityView) <- mkButton "build city"
+  endturnbutton   <- mkButton "End Turn" "btn-outline-danger btn-sm"
+  buildRoadButton <- mkButton "Build Road" "btn-outline-primary btn-sm"
+  buildSettButton <- mkButton "Build Settlement" "btn-outline-primary btn-sm"
+  buildCityButton <- mkButton "Build City" "btn-outline-primary btn-sm"
 
-  buttons <- row [element endturnview
-                  , element buildRoadView
-                  , element buildSettView
-                  , element buildCityView]
+  buttons <- bootstrapRow [element buildRoadButton
+                  , element buildSettButton
+                  , element buildCityButton
+                  , element endturnbutton]
 
-  menu <- column [element heading
-                 , element subHeading
+  menu <- UI.div # set UI.id_ "menu" 
+                 #+ [element subHeading
                  , element rollResult
                  , drawResources game
-                 , drawCards game]
-            # set UI.id_ "menu"
-  -- let (board, tiles) = background game
-  -- let board = background game
+                 , drawCards game
+                 , drawTrading game]
+  
+  sidebar <- UI.div # set UI.class_ "col-lg-5" 
+                    #+ [ element menu
+                    , UI.div # set UI.class_ "row" #+ [UI.h4 # set text "Actions:"]
+                    , element buttons
+                    ]
 
-  -- let tiles = background game
-  -- let board = drawBoard tiles
-  -- let _ = setHover tiles setTileHover setTileLeave
+  boardDiv <- UI.div # set UI.class_ "col-lg-7"
+                     #+ [background game]
 
-  _ <- getBody w #+ [ element menu
-                     , UI.h3 # set text "Actions:"
-                     , element buttons
-                     , background game ]
+  gameRow <- bootstrapRow [element boardDiv, element sidebar]
+  container <- UI.div # set UI.class_ "container-fluid main-container" #+ [element heading, element gameRow]
 
-  on UI.click endturnbutton $ \_ -> do
-    -- kind of a hack but works for now
-    element endturnbutton # set text "End Turn"
-    endTurn $ mvars
+  _ <- getBody w #+ [ element container ]
+
+  on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
   on UI.click buildRoadButton $
-      \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (Cheat [Lumber, Brick]) mvars
-                                                          _ <- sendAction (BuildRoad i1 i2) mvars
+      \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (BuildRoad i1 i2) mvars
                                                           return ())
 
 
   on UI.click buildSettButton $
-      \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
-                                        _ <- sendAction (BuildSettlement index) mvars
+      \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildSettlement index) mvars
                                         return ())
 
   on UI.click buildCityButton $
-      \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
-                                        _ <- sendAction (BuildCity index) mvars
+      \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildCity index) mvars
                                         return ())
 
-
-drawResources :: Game -> UI Element 
+drawResources :: Game -> UI Element
 drawResources Game{..} = do
-  resourcesp <- UI.p 
+  resourcesp <- UI.p
     # set UI.id_ "resources"
     # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   return resourcesp
@@ -102,18 +107,76 @@ drawResources Game{..} = do
 drawCards :: Game -> UI Element
 drawCards Game{..} = do
   let devcards = cards (getPlayer currentPlayer players)
-  let listitems = map (\c -> do 
+  let listitems = map (\c -> do
       button <- UI.button
-        # set UI.class_ "button list-group-item"
+        # set UI.class_ "list-group-item"
         # set UI.type_ "button"
         # set UI.text_ (show c)
       return button) devcards
-  cardsTitle <- UI.h3 # set text "Development cards:"
+  cardsTitle <- UI.h4 # set text "Development cards:"
   list <- UI.div
     # set UI.id_ "devcardsdiv"
     # set UI.class_ "list-group cards"
     #+ ((element cardsTitle):listitems)
   return list
+
+-- is there a nicer way to do this?
+resourceRadioValues :: [Resource]
+resourceRadioValues = [Brick, Lumber, Ore, Grain, Wool]
+
+drawTrading :: Game -> UI Element
+drawTrading Game{..} = do
+  let fromResourceRadios = map (makeRadio "from") resourceRadioValues
+  let toResourceRadios = map (makeRadio "to") resourceRadioValues
+  let fromDiv = UI.div # set UI.class_ "from-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to trade"):fromResourceRadios)
+  let toDiv = UI.div # set UI.class_ "form-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to trade"):toResourceRadios)
+  submitButton <- UI.button #. "btn btn-outline-success btn-sm" # set text "Trade With Bank"
+  form <- UI.form #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
+
+  -- on UI.click submitButton $ \_ ->
+  --   let maybeFrom = foldr (checkRadio "from") Nothing resourceRadioValues
+  --       maybeTo = foldr (checkRadio "to") Nothing resourceRadioValues in
+  --         case (maybeFrom, maybeTo) of 
+  --           (Just r1, Just r2) -> do 
+  --             _ <- sendAction (TradeWithBank r1 r2 1) mvars
+  --             return ()
+  --           (_, _) -> return ()
+
+  return form
+  where
+    makeRadio tag res = do 
+      let r = show res
+      inp <- UI.input # set UI.type_ "radio" # set UI.id_ (tag ++ r) # set UI.name tag # set UI.value r
+
+      -- on UI.click inp $ \_ -> 
+      --   if tag == "from" then do 
+      --     debug "???"
+      --     w <- askWindow
+      --     maybeFromDiv <- getElementById w "fromDiv"
+      --     let fromDiv = fromJust maybeFromDiv
+      --     element fromDiv # set UI.value r
+      --   else do
+      --     debug "???"
+      --     w <- askWindow
+      --     maybeToDiv <- getElementById w "toDiv"
+      --     let toDiv = fromJust maybeToDiv
+      --     element toDiv # set UI.value r
+
+      UI.label 
+        # set UI.class_ "btn btn-secondary btn-sm active btn-spacing-sm" 
+        #+ [element inp
+        , UI.span # set UI.class_ "custom-control-indicator"
+        , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]
+
+    -- checkRadio :: String -> Resource -> Maybe Resource -> Maybe Resource
+    -- checkRadio tag res acc = do 
+    --   let r = show res 
+    --   w <- askWindow
+    --   let radioid = tag ++ r 
+    --   maybeElem <- getElementById w radioid 
+    --   let e = fromJust maybeElem 
+    --   checked <- get UI.checked e 
+    --   if checked then Just res else acc
 
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
@@ -138,33 +201,6 @@ flatHexPoints x1 y1 r1 =
              angle_rad = pi / 180 * angle_deg in
          show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
 
--- shadow :: UI Element
--- shadow = do
---   d <- SVG.defs
---   filt <- SVG.filter
---     # set SVG.id "f1"
---     # set SVG.width "200%"
---     # set SVG.height "200%"
---   offset <- SVG.feOffset
---     # set SVG.result "offOut"
---     # set SVG.in_ "SourceGraphic"
---     # set SVG.dx "2"
---     # set SVG.dy "2"
---   mat <- SVG.feColorMatrix
---     # set SVG.result "matrixOut"
---     # set SVG.in_ "offOut"
---     # set SVG.type_ "matrix"
---     # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
---   blur <- SVG.feGaussianBlur
---     # set SVG.result "blurOut"
---     # set SVG.in_ "matrixOut"
---     # set SVG.stdDeviation "50"
---   blend <- SVG.feBlend
---     # set SVG.in_ "SourceGraphic"
---     # set SVG.in2 "blurOut"
---     # set SVG.mode "normal"
---   return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
-
 foreground :: Game -> UI Element
 foreground Game{..} = do
   let bs = map drawBuilding buildings
@@ -175,8 +211,6 @@ foreground Game{..} = do
     # set SVG.r (show (hexSize / 2))
     # set SVG.cx (show x)
     # set SVG.cy (show y)
-    # set SVG.stroke "rgb(103, 128, 159)"
-    # set SVG.stroke_width "1"
     # set SVG.fill "rgb(103, 128, 159)"
     # set SVG.opacity ".7"
     # set SVG.pointer_events "none"
@@ -189,19 +223,21 @@ foreground Game{..} = do
         # set SVG.class_ "render"
         # set SVG.cx (show x)
         # set SVG.cy (show y)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
         # set SVG.fill (colorToRGB c)
-    drawBuilding (City c l) =
-      let (x, y) = cornerToPixel l in
-      SVG.circle
-        # set SVG.r (show (hexSize/2))
-        # set SVG.class_ "render"
+    drawBuilding (City c l) = do
+      let (x, y) = cornerToPixel l
+      g <- SVG.g # set SVG.class_ "render"
+      return g #+ [SVG.circle
+        # set SVG.r (show (hexSize/3 + 5))
         # set SVG.cx (show x)
         # set SVG.cy (show y)
-        # set SVG.stroke (colorToRGB c)
-        # set SVG.stroke_width "1"
-        # set SVG.fill (colorToRGB c)
+        # set SVG.fill (colorToRGB c),
+        SVG.circle
+        # set SVG.r "10"
+        # set SVG.cx (show x)
+        # set SVG.cy (show y)
+        # set SVG.fill "rgb(34, 49, 63)"
+        ]
     drawRoad r = do
       let (l1, l2, c) = getRoad r
       let (x1,y1) = cornerToPixel l1
@@ -238,7 +274,6 @@ getTileColor board index =
       Hills -> "rgb(179, 94, 30)"
       Forest -> "rgb(30, 130, 76)"
       Mountains -> "rgb(190, 144, 212)"
-      -- Mountains -> "rgb(171, 183, 183)"
       Fields -> "rgb(135, 211, 124)"
       Pasture -> "rgb(245, 215, 110)"
     Desert -> "rgb(253, 227, 167)"
@@ -389,15 +424,12 @@ sendAction action CatanMVars{..} = do
   when (action == PlayKnight) (robberSequence game)
   return game
 
+
 disableClicking :: Board -> UI ()
 disableClicking board = do
   turnButtons True
   resetBoard board
 
-disableTiles = do
-  runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('click')})"
-  runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('mouseenter mouseleave')})"
-  turnButtons True
 
 turnButtons :: Bool -> UI ()
 turnButtons b = do
@@ -420,12 +452,12 @@ robberSequence Game{..} = do
       element tile # set SVG.fill color
     on UI.click tile $ \_ -> do
       index <- get UI.value tile
-      liftIO $ print "UI putting robber"
+      log "UI putting robber"
       putMVar robberVar (read index)
-      liftIO $ print "UI taking game robber"
+      log "UI taking game robber"
       _ <- tryTakeMVar gameVar
       g <- takeMVar gameVar
-      liftIO $ print "UI took game robber"
+      log "UI took game robber"
       renderGame g
       disableClicking board
       liftIO $ threadDelay 10000
@@ -434,31 +466,27 @@ robberSequence Game{..} = do
         Nothing -> return ()
         Just ps -> let color = snd $ head ps in
                   putMVar colorVar color
-      liftIO $ print "UI taking extra game"
+      log "UI taking extra game"
       _ <- takeMVar gameVar
-      liftIO $ print "UI took extra game"
       e <- getElementById w "roll"
       _ <- element (fromJust e) # set text "Roll was a 7."
+      log "UI took extra game"
       return ()
     acc) (return ()) tiles
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
   w <- askWindow
-  liftIO $ print "UI taking game Action"
+  log "UI taking game Action"
   g@Game{..} <- sendAction EndTurn m
-  liftIO $ print "UI took game Action"
+  log "UI took game Action"
   roll <- takeMVar rollVar
-  liftIO $ do putStr "roll: "
-              print roll
-  let roll7prompt = if roll == 7 then " Place the robber on a new tile." else ""
-  let rollStr = "Roll was a " ++ (show roll) ++ "." ++ roll7prompt
-  e <- getElementById w "roll"
-  _ <- element (fromJust e) # set text rollStr
+  let roll7prompt = if roll == 7 then "\tPlace the robber on a new tile." else ""
+  let rollStr = "Roll: " ++ (show roll) ++ roll7prompt
+  rolle <- getElementById w "roll"
+  _ <- element (fromJust rolle) # set text rollStr
   e <- getElementById w "player"
   _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
-  re <- getElementById w "resources"
-  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
@@ -477,7 +505,7 @@ makeCorners onClick = do
             # set SVG.cx (show x)
             # set SVG.cy (show y)
             # set SVG.stroke_width "0"
-            # set SVG.fill "rgb(108, 122, 137)"
+            # set SVG.fill "white"
             # set SVG.fill_opacity "0.0"
             # set UI.value (show l)
           on UI.hover corner $ \_ ->
@@ -499,10 +527,12 @@ deleteCorners = do
   foldr (\x acc -> delete x >> acc) (return ()) es
 
 renderGame :: Game -> UI ()
-renderGame game = do
+renderGame game@Game{..} = do
   w <- askWindow
   es <- getElementsByClassName w "render"
-  e <- getElementById w "mainHex" 
+  e <- getElementById w "mainHex"
+  re <- getElementById w "resources"
+  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   _ <- (return $ fromJust $ e) #+ [foreground game]
   cdiv <- getElementById w "devcardsdiv"
   menu <- getElementById w "menu"
@@ -519,3 +549,7 @@ resetBoard board = do
 
 instance MonadBase IO UI where
   liftBase = liftIO
+
+log :: Show a => a -> UI ()
+log str = liftIO $ do putStr $ "[UI]  "
+                      print str

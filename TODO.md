@@ -64,6 +64,9 @@ main thread waits for next action
 	Trade with another player
 	Trade with bank/harbor
 
+	roll on game start? or just have blue player be first
+	
+
 
 gui thread updates the display's callbacks based on the user's choice
 

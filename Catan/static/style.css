@@ -1,0 +1,25 @@
+body {
+  padding-top     : 20px;
+  padding-bottom  : 0px;
+  padding-left: 0px;
+  padding-right: 0px;
+  width: 1;
+  background-color: #eee;
+}
+
+legend {
+  font-size: 1rem;
+  margin: 0px;
+}
+
+.main-container {
+  margin: 0px 10px 0px 10px;
+}
+
+.btn-spacing {
+  margin: 0px 4px 0px 4px; 
+}
+
+.btn-spacing-sm {
+  margin: 0px 1px 0px 1px; 
+}
