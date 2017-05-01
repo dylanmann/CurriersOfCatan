@@ -40,7 +40,7 @@ setup CatanMVars{..} w = void $ do
   game@Game{..} <- takeMVar gameVar
 
   heading <- UI.h1 # set text "Curriers of Catan"
-  subHeading <- UI.h1 # set text ("Current Player: " ++ show currentPlayer)
+  subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer)
                       # set SVG.id "player"
   (endturnbutton, endturnview)     <- mkButton "End Turn"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
@@ -52,7 +52,11 @@ setup CatanMVars{..} w = void $ do
                   , element buildSettView
                   , element buildCityView]
 
-
+  menu <- column [element heading
+                 , element subHeading
+                 , drawResources game
+                 , drawCards game]
+            # set UI.id_ "menu"
   -- let (board, tiles) = background game
   -- let board = background game
 
@@ -60,11 +64,9 @@ setup CatanMVars{..} w = void $ do
   -- let board = drawBoard tiles
   -- let _ = setHover tiles setTileHover setTileLeave
 
-  _ <- getBody w #+ [element heading
-                     , element subHeading
+  _ <- getBody w #+ [ element menu
                      , element buttons
-                     , background game
-                     ]
+                     , background game ]
 
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
@@ -83,6 +85,30 @@ setup CatanMVars{..} w = void $ do
       \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
                                         _ <- sendAction (BuildCity index) mvars
                                         return ())
+
+
+drawResources :: Game -> UI Element 
+drawResources Game{..} = do
+  resourcesp <- UI.p 
+    # set UI.id_ "resources"
+    # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
+  return resourcesp
+
+drawCards :: Game -> UI Element
+drawCards Game{..} = do
+  let devcards = cards (getPlayer currentPlayer players)
+  let listitems = map (\c -> do 
+      button <- UI.button
+        # set UI.class_ "button list-group-item"
+        # set UI.type_ "button"
+        # set UI.text_ (show c)
+      return button) devcards
+  cardsTitle <- UI.h3 # set text "Development cards:"
+  list <- UI.div
+    # set UI.id_ "devcardsdiv"
+    # set UI.class_ "list-group cards"
+    #+ ((element cardsTitle):listitems)
+  return list
 
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
@@ -280,6 +306,31 @@ background game@Game{..} = do
   let g = SVG.g # set SVG.id "hexGroup" #+ (makeHexGroup board)
   return context #+ (element bg : g : [foreground game])
 
+  -- makeHabors board = 
+  --   let harborCorners = 
+  --     [((0,-2, True), (0,-3))
+  --     ,((1,-2, True), (2,-3))
+  --     ,((2,-1, True), (3,-2))
+  --     ,((2,1, True), (3,0))
+  --     ,((1,2, True), (1,2))
+  --     ,((-1,3, True), (-1,3))
+  --     ,((-3,3, True), (-3,3))
+  --     ,((-3,2, True), (-3,1))
+  --     ,((-2,0, True), (-2,-1))]
+  --   map drawHarbors harborCorners
+
+  -- drawHarbors cornerInx hexInx = 
+  --   let (x, y) = h2p hexInx 
+
+  -- h2p (q1, r1) =
+  --   let q = fromIntegral q1
+  --       r = fromIntegral r1
+  --       x = hexSize * (q + r/2.0) * sqrt 3
+  --       y = hexSize * 3.0/2.0 * r
+  --       x' = (x + 6 * hexSize)
+  --       y' = (y + 6 * hexSize) in
+  --   (round x', round y')
+
 colorToRGB :: Color -> String
 colorToRGB c = case c of
   Blue   -> "rgb(65, 131, 215)"
@@ -323,6 +374,11 @@ disableClicking :: Board -> UI ()
 disableClicking board = do
   turnButtons True
   resetBoard board
+
+disableTiles = do
+  runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('click')})"
+  runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('mouseenter mouseleave')})"
+  turnButtons True
 
 turnButtons :: Bool -> UI ()
 turnButtons b = do
@@ -375,8 +431,9 @@ endTurn m@CatanMVars{..} = do
   liftIO $ do putStr "roll: "
               print roll
   e <- getElementById w "player"
-  let t = fromJust e
-  _ <- element t # set text ("Current Player: " ++ (show currentPlayer))
+  _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
+  re <- getElementById w "resources"
+  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
@@ -420,9 +477,12 @@ renderGame :: Game -> UI ()
 renderGame game = do
   w <- askWindow
   es <- getElementsByClassName w "render"
-  e <- getElementById w "mainHex"
+  e <- getElementById w "mainHex" 
   _ <- (return $ fromJust $ e) #+ [foreground game]
-  foldr (\x acc -> delete x >> acc) (return ()) es
+  cdiv <- getElementById w "devcardsdiv"
+  menu <- getElementById w "menu"
+  _ <- (return $ fromJust $ menu) #+ [drawCards game]
+  foldr (\x acc -> delete x >> acc) (return ()) ((fromJust cdiv):es)
 
 resetBoard :: Board -> UI ()
 resetBoard board = do
