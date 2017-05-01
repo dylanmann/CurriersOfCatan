@@ -12,7 +12,7 @@ import           Graphics.UI.Threepenny.Core
 import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
 import           Control.Concurrent.MVar.Lifted
-import           Data.Maybe(fromJust)
+import           Data.Maybe(fromJust, mapMaybe)
 import           Data.List(intercalate)
 import           Types
 import           Control.Monad.Base
@@ -49,24 +49,26 @@ setup CatanMVars{..} w = void $ do
   heading <- UI.h1 # set text "Curriers of Catan"
   subHeading <- UI.h2 # set text ("Current Player: " ++ (show currentPlayer))
                       # set UI.id_ "player"
-  rollResult <- UI.h4 # set text "Roll: " # set UI.id_ "roll"
+  rollResult <- UI.h4 # set text ("Roll: " ++ (show roll)) # set UI.id_ "roll"
 
   endturnbutton   <- mkButton "End Turn" "btn-outline-danger btn-sm"
   buildRoadButton <- mkButton "Build Road" "btn-outline-primary btn-sm"
   buildSettButton <- mkButton "Build Settlement" "btn-outline-primary btn-sm"
+  buyCardButton   <- mkButton "Buy Card" "btn-outline-primary btn-sm"
   buildCityButton <- mkButton "Build City" "btn-outline-primary btn-sm"
 
   buttons <- bootstrapRow [element buildRoadButton
                   , element buildSettButton
                   , element buildCityButton
+                  , element buyCardButton
                   , element endturnbutton]
 
   menu <- UI.div # set UI.id_ "menu" 
                  #+ [element subHeading
                  , element rollResult
                  , drawResources game
-                 , drawCards game
-                 , drawTrading game]
+                 , drawTrading game
+                 , drawCards game]
   
   sidebar <- UI.div # set UI.class_ "col-lg-5" 
                     #+ [ element menu
@@ -88,7 +90,6 @@ setup CatanMVars{..} w = void $ do
       \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (BuildRoad i1 i2) mvars
                                                           return ())
 
-
   on UI.click buildSettButton $
       \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildSettlement index) mvars
                                         return ())
@@ -97,12 +98,26 @@ setup CatanMVars{..} w = void $ do
       \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildCity index) mvars
                                         return ())
 
+  on UI.click buyCardButton $ \_ -> do 
+      _ <- sendAction BuyCard mvars
+      return ()
+
 drawResources :: Game -> UI Element
 drawResources Game{..} = do
   resourcesp <- UI.p
     # set UI.id_ "resources"
     # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   return resourcesp
+
+-- <div class="list-group">
+--   <button type="button" class="list-group-item list-group-item-action active">
+--     Cras justo odio
+--   </button>
+--   <button type="button" class="list-group-item list-group-item-action">Dapibus ac facilisis in</button>
+--   <button type="button" class="list-group-item list-group-item-action">Morbi leo risus</button>
+--   <button type="button" class="list-group-item list-group-item-action">Porta ac consectetur ac</button>
+--   <button type="button" class="list-group-item list-group-item-action" disabled>Vestibulum at eros</button>
+-- </div>
 
 drawCards :: Game -> UI Element
 drawCards Game{..} = do
@@ -131,52 +146,35 @@ drawTrading Game{..} = do
   let fromDiv = UI.div # set UI.class_ "from-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to trade"):fromResourceRadios)
   let toDiv = UI.div # set UI.class_ "form-group" # set UI.id_ "fromDiv" #+ ((UI.legend # set text "Resource to trade"):toResourceRadios)
   submitButton <- UI.button #. "btn btn-outline-success btn-sm" # set text "Trade With Bank"
-  form <- UI.form #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
+  form <- UI.div #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
 
-  -- on UI.click submitButton $ \_ ->
-  --   let maybeFrom = foldr (checkRadio "from") Nothing resourceRadioValues
-  --       maybeTo = foldr (checkRadio "to") Nothing resourceRadioValues in
-  --         case (maybeFrom, maybeTo) of 
-  --           (Just r1, Just r2) -> do 
-  --             _ <- sendAction (TradeWithBank r1 r2 1) mvars
-  --             return ()
-  --           (_, _) -> return ()
+  on UI.click submitButton $ \_ -> do 
+      maybeFrom <- foldr (checkRadio "from") (return Nothing) resourceRadioValues
+      maybeTo <- foldr (checkRadio "to") (return Nothing) resourceRadioValues
+      case (maybeFrom, maybeTo) of 
+        (Just r1, Just r2) -> do 
+          _ <- sendAction (TradeWithBank r1 r2 1) mvars
+          return ()
+        (_, _) -> return ()
 
   return form
   where
-    makeRadio tag res = do 
-      let r = show res
-      inp <- UI.input # set UI.type_ "radio" # set UI.id_ (tag ++ r) # set UI.name tag # set UI.value r
+    makeRadio tag res = 
+      let r = show res in
+        UI.label 
+          # set UI.class_ "btn btn-secondary btn-sm active btn-spacing-sm" 
+          #+ [UI.input # set UI.type_ "radio" # set UI.id_ (tag ++ r) # set UI.name tag # set UI.value r
+          , UI.span # set UI.class_ "custom-control-indicator"
+          , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]
 
-      -- on UI.click inp $ \_ -> 
-      --   if tag == "from" then do 
-      --     debug "???"
-      --     w <- askWindow
-      --     maybeFromDiv <- getElementById w "fromDiv"
-      --     let fromDiv = fromJust maybeFromDiv
-      --     element fromDiv # set UI.value r
-      --   else do
-      --     debug "???"
-      --     w <- askWindow
-      --     maybeToDiv <- getElementById w "toDiv"
-      --     let toDiv = fromJust maybeToDiv
-      --     element toDiv # set UI.value r
-
-      UI.label 
-        # set UI.class_ "btn btn-secondary btn-sm active btn-spacing-sm" 
-        #+ [element inp
-        , UI.span # set UI.class_ "custom-control-indicator"
-        , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]
-
-    -- checkRadio :: String -> Resource -> Maybe Resource -> Maybe Resource
-    -- checkRadio tag res acc = do 
-    --   let r = show res 
-    --   w <- askWindow
-    --   let radioid = tag ++ r 
-    --   maybeElem <- getElementById w radioid 
-    --   let e = fromJust maybeElem 
-    --   checked <- get UI.checked e 
-    --   if checked then Just res else acc
+    checkRadio tag res acc = do 
+      let r = show res 
+      w <- askWindow
+      let radioid = tag ++ r 
+      maybeElem <- getElementById w radioid 
+      let e = fromJust maybeElem 
+      checked <- get UI.checked e 
+      if checked then return (Just res) else acc
 
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
@@ -469,7 +467,7 @@ robberSequence Game{..} = do
       log "UI taking extra game"
       _ <- takeMVar gameVar
       e <- getElementById w "roll"
-      _ <- element (fromJust e) # set text "Roll was a 7."
+      _ <- element (fromJust e) # set text "Roll: 7"
       log "UI took extra game"
       return ()
     acc) (return ()) tiles
