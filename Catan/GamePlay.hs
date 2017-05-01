@@ -75,33 +75,36 @@ initialize = do
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
 log :: Show a => a -> MyState ()
-log str = liftIO $ print $ "[GAME]  " ++ (show str)
+log str = liftIO $ do putStr $ "[GAME]  "
+                      print str
+
 
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
-advancePlayer :: MyState ()
-advancePlayer = do
+advancePlayer :: Bool -> MyState ()
+advancePlayer firstTurn = do
   CatanMVars{..} <- getCatanMVars
   roll <- rollDice
-  putMVar rollVar roll
-  game <- S.get
-  let newGame = game{currentPlayer = nextPlayer $ currentPlayer game}
-  S.put newGame
-  case roll of
-    2  -> allocateRewards Two
-    3  -> allocateRewards Three
-    4  -> allocateRewards Four
-    5  -> allocateRewards Five
-    6  -> allocateRewards Six
-    7  -> do log "putting roll seven"
-             putMVar gameVar newGame
-             log " put roll seven"
-             rollSeven
-    8  -> allocateRewards Eight
-    9  -> allocateRewards Nine
-    10 -> allocateRewards Ten
-    11 -> allocateRewards Eleven
-    12 -> allocateRewards Twelve
-    _  -> error "impossible"
+  if firstTurn && roll == 7 then advancePlayer True else do
+    putMVar rollVar roll
+    game <- S.get
+    let newGame = game{currentPlayer = nextPlayer $ currentPlayer game}
+    S.put newGame
+    case roll of
+      2  -> allocateRewards Two
+      3  -> allocateRewards Three
+      4  -> allocateRewards Four
+      5  -> allocateRewards Five
+      6  -> allocateRewards Six
+      7  -> do log "putting roll seven"
+               putMVar gameVar newGame
+               log " put roll seven"
+               rollSeven
+      8  -> allocateRewards Eight
+      9  -> allocateRewards Nine
+      10 -> allocateRewards Ten
+      11 -> allocateRewards Eleven
+      12 -> allocateRewards Twelve
+      _  -> error "impossible"
 
 
 shuffle :: (MonadRandom m) => [a] -> m [a]
@@ -123,7 +126,7 @@ takeTurn playedCard = do
   when (action == EndGame) $ error "Handle end of game better than this"
   log action
   turnOver <- handleAction action
-  when turnOver advancePlayer
+  when turnOver $ advancePlayer False
   g <- S.get
   log "putting take turn"
   _ <- tryTakeMVar gameVar
@@ -154,7 +157,8 @@ playGame = do
   game@Game{..} <- liftIO initialize
   let guiThread = forkIO $ beginGUI $ mvars
   _ <- guiThread
-  putMVar (gameVar mvars) game
+  newg <- S.execStateT (advancePlayer True) game
+  putMVar (gameVar mvars) newg
   let go = do
       CatanMVars{..} <- getCatanMVars
       takeTurn False
@@ -162,7 +166,7 @@ playGame = do
       case winner of
         Just w -> return w
         Nothing -> go
-  S.evalStateT go game
+  S.evalStateT go newg
 
 rollDice :: MyState Int
 rollDice = liftM2 (+) die die where

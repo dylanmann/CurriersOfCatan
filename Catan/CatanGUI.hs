@@ -37,10 +37,11 @@ setup :: CatanMVars -> Window -> UI ()
 setup CatanMVars{..} w = void $ do
   _ <- return w # set title "Curriers of Catan"
 
+  roll <- takeMVar rollVar
   game@Game{..} <- takeMVar gameVar
 
   heading <- UI.h1 # set text "Curriers of Catan"
-  subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer)
+  subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer ++ "   roll: " ++ (show roll))
                       # set SVG.id "player"
   (endturnbutton, endturnview)     <- mkButton "End Turn"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
@@ -71,19 +72,16 @@ setup CatanMVars{..} w = void $ do
   on UI.click endturnbutton $ \_ -> endTurn $ mvars
 
   on UI.click buildRoadButton $
-      \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (Cheat [Lumber, Brick]) mvars
-                                                          _ <- sendAction (BuildRoad i1 i2) mvars
+      \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (BuildRoad i1 i2) mvars
                                                           return ())
 
 
   on UI.click buildSettButton $
-      \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Lumber, Grain, Wool, Brick]) mvars
-                                        _ <- sendAction (BuildSettlement index) mvars
+      \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildSettlement index) mvars
                                         return ())
 
   on UI.click buildCityButton $
-      \_ -> makeCorners $ (\index -> do _ <- sendAction (Cheat [Ore, Ore, Ore, Grain, Grain]) mvars
-                                        _ <- sendAction (BuildCity index) mvars
+      \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildCity index) mvars
                                         return ())
 
 
@@ -132,33 +130,6 @@ flatHexPoints x1 y1 r1 =
              angle_deg = 60 * i
              angle_rad = pi / 180 * angle_deg in
          show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
-
--- shadow :: UI Element
--- shadow = do
---   d <- SVG.defs
---   filt <- SVG.filter
---     # set SVG.id "f1"
---     # set SVG.width "200%"
---     # set SVG.height "200%"
---   offset <- SVG.feOffset
---     # set SVG.result "offOut"
---     # set SVG.in_ "SourceGraphic"
---     # set SVG.dx "2"
---     # set SVG.dy "2"
---   mat <- SVG.feColorMatrix
---     # set SVG.result "matrixOut"
---     # set SVG.in_ "offOut"
---     # set SVG.type_ "matrix"
---     # set SVG.values "0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"
---   blur <- SVG.feGaussianBlur
---     # set SVG.result "blurOut"
---     # set SVG.in_ "matrixOut"
---     # set SVG.stdDeviation "50"
---   blend <- SVG.feBlend
---     # set SVG.in_ "SourceGraphic"
---     # set SVG.in2 "blurOut"
---     # set SVG.mode "normal"
---   return d #+ [element filt #+ [element offset, element mat, element blur, element blend]]
 
 foreground :: Game -> UI Element
 foreground Game{..} = do
@@ -233,7 +204,6 @@ getTileColor board index =
       Hills -> "rgb(179, 94, 30)"
       Forest -> "rgb(30, 130, 76)"
       Mountains -> "rgb(190, 144, 212)"
-      -- Mountains -> "rgb(171, 183, 183)"
       Fields -> "rgb(135, 211, 124)"
       Pasture -> "rgb(245, 215, 110)"
     Desert -> "rgb(253, 227, 167)"
@@ -425,12 +395,8 @@ endTurn m@CatanMVars{..} = do
   g@Game{..} <- sendAction EndTurn m
   log "UI took game Action"
   roll <- takeMVar rollVar
-  liftIO $ do putStr "roll: "
-              print roll
   e <- getElementById w "player"
-  _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
-  re <- getElementById w "resources"
-  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
+  _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer) ++ "     roll: " ++ (show roll))
   liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
@@ -471,10 +437,12 @@ deleteCorners = do
   foldr (\x acc -> delete x >> acc) (return ()) es
 
 renderGame :: Game -> UI ()
-renderGame game = do
+renderGame game@Game{..} = do
   w <- askWindow
   es <- getElementsByClassName w "render"
   e <- getElementById w "mainHex"
+  re <- getElementById w "resources"
+  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   _ <- (return $ fromJust $ e) #+ [foreground game]
   cdiv <- getElementById w "devcardsdiv"
   menu <- getElementById w "menu"
@@ -493,4 +461,5 @@ instance MonadBase IO UI where
   liftBase = liftIO
 
 log :: Show a => a -> UI ()
-log str = liftIO $ print $ "[UI]  " ++ (show str)
+log str = liftIO $ do putStr $ "[UI]  "
+                      print str

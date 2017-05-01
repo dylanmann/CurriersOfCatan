@@ -383,7 +383,9 @@ cheat rs = do
     return True
 
 log :: Show a => a -> MyState ()
-log str = liftIO $ print $ "[GAME]  " ++ (show str)
+log str = liftIO $ do putStr $ "[GAME]  "
+                      print str
+
 
 -- | prompts user thread for input and moves the robber to that location, with all the effects
 moveRobber :: MyState ()
