@@ -164,13 +164,19 @@ neighbors = map getNeighbors cornerIndices
 
 allCorners :: IO [Corner]
 allCorners = do h <- harbors
-                return $ zip neighbors $ makeHarbors h
+                return $ zip neighbors $ (replicate 24 Nothing) ++ makeHarbors h
 
 makeHarbors :: [Harbor] -> [Maybe Harbor]
-makeHarbors (h1:h2:tl) =
-  Just h1: Just h1: Nothing: Nothing: Just h2: Just h2: Nothing: makeHarbors tl
-makeHarbors (h:[]) = [Just h, Just h]
 makeHarbors [] = []
+makeHarbors (h:tl) = [Just h] ++ (makeHarborsAux tl) ++ [Just h]
+  where
+    makeHarborsAux (h1:h2:h3:h4:h5:h6:h7:h8:_) = 
+      Nothing: Just h1: Just h1: Nothing: Nothing: Just h2: Just h2:
+      Nothing: Just h3: Just h3: Nothing: Just h4: Just h4: Nothing:
+      Nothing: Just h5: Just h5: Nothing: Just h6: Just h6: Nothing:
+      Just h7: Just h7: Nothing: Nothing: Just h8: Just h8: [Nothing]
+    -- these are just to make the compiler happy
+    makeHarborsAux _ = []
 
 harbors :: IO [Harbor]
 harbors = shuffleM $ map SpecialHarbor [Wool, Lumber, Brick, Ore, Grain] ++

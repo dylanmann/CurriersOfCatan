@@ -39,8 +39,10 @@ setup CatanMVars{..} w = void $ do
 
   heading <- UI.h1 # set text "Curriers of Catan"
   subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer)
-                      # set SVG.id "player"
-  (endturnbutton, endturnview)     <- mkButton "End Turn"
+                      # set UI.id_ "player"
+  rollResult <- UI.h3 # set text "Press \"Start Game\" to begin the game" # set UI.id_ "roll"
+
+  (endturnbutton, endturnview)     <- mkButton "Start Game"
   (buildRoadButton, buildRoadView) <- mkButton "build road"
   (buildSettButton, buildSettView) <- mkButton "build settlement"
   (buildCityButton, buildCityView) <- mkButton "build city"
@@ -52,6 +54,7 @@ setup CatanMVars{..} w = void $ do
 
   menu <- column [element heading
                  , element subHeading
+                 , element rollResult
                  , drawResources game
                  , drawCards game]
             # set UI.id_ "menu"
@@ -63,10 +66,14 @@ setup CatanMVars{..} w = void $ do
   -- let _ = setHover tiles setTileHover setTileLeave
 
   _ <- getBody w #+ [ element menu
+                     , UI.h3 # set text "Actions:"
                      , element buttons
                      , background game ]
 
-  on UI.click endturnbutton $ \_ -> endTurn $ mvars
+  on UI.click endturnbutton $ \_ -> do
+    -- kind of a hack but works for now
+    element endturnbutton # set text "End Turn"
+    endTurn $ mvars
 
   on UI.click buildRoadButton $
       \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (Cheat [Lumber, Brick]) mvars
@@ -302,32 +309,46 @@ background game@Game{..} = do
     # set SVG.stroke_width "1"
     # set SVG.fill "rgb(129,207,224)"
   let g = SVG.g # set SVG.id "hexGroup" #+ (makeHexGroup board)
-  return context #+ (element bg : g : [foreground game])
+  let harbors = foldr makeHabors [] cornerIndices
+  let elemList = ((element bg) : (harbors ++ (g : [foreground game])))
+  return context #+ elemList
+  where
+    makeHabors cornerLoc acc = 
+      case (getCorner board cornerLoc) of 
+        (_, Just GenericHarbor) ->
+          let (x,y) = cornerToPixel cornerLoc 
+              h = SVG.circle
+                # set SVG.r (show (hexSize/2))
+                # set SVG.cx (show x)
+                # set SVG.cy (show y)
+                # set SVG.fill (getHarborColor cornerLoc)
+                # set SVG.stroke "rgb(34, 49, 63)"
+                # set SVG.stroke_width "1"
+          in
+          h:acc
+        (_, Just (SpecialHarbor r)) ->
+          let (x,y) = cornerToPixel cornerLoc 
+              h = SVG.circle
+                # set SVG.r (show (hexSize/2))
+                # set SVG.cx (show x)
+                # set SVG.cy (show y)
+                # set SVG.fill (getHarborColor cornerLoc)
+                # set SVG.stroke "rgb(34, 49, 63)"
+                # set SVG.stroke_width "1"
+          in
+          h:acc
+        (_, Nothing) -> acc
 
-  -- makeHabors board = 
-  --   let harborCorners = 
-  --     [((0,-2, True), (0,-3))
-  --     ,((1,-2, True), (2,-3))
-  --     ,((2,-1, True), (3,-2))
-  --     ,((2,1, True), (3,0))
-  --     ,((1,2, True), (1,2))
-  --     ,((-1,3, True), (-1,3))
-  --     ,((-3,3, True), (-3,3))
-  --     ,((-3,2, True), (-3,1))
-  --     ,((-2,0, True), (-2,-1))]
-  --   map drawHarbors harborCorners
-
-  -- drawHarbors cornerInx hexInx = 
-  --   let (x, y) = h2p hexInx 
-
-  -- h2p (q1, r1) =
-  --   let q = fromIntegral q1
-  --       r = fromIntegral r1
-  --       x = hexSize * (q + r/2.0) * sqrt 3
-  --       y = hexSize * 3.0/2.0 * r
-  --       x' = (x + 6 * hexSize)
-  --       y' = (y + 6 * hexSize) in
-  --   (round x', round y')
+    getHarborColor l = case (getCorner board l) of 
+                        (_, Just GenericHarbor) -> "rgb(108, 122, 137)"
+                        (_, Just (SpecialHarbor r)) -> 
+                          case r of
+                            Brick -> "rgb(179, 94, 30)"
+                            Lumber -> "rgb(30, 130, 76)"
+                            Ore -> "rgb(190, 144, 212)"
+                            Grain -> "rgb(135, 211, 124)"
+                            Wool -> "rgb(245, 215, 110)"
+                        (_, Nothing) -> ""
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -416,6 +437,8 @@ robberSequence Game{..} = do
       liftIO $ print "UI taking extra game"
       _ <- takeMVar gameVar
       liftIO $ print "UI took extra game"
+      e <- getElementById w "roll"
+      _ <- element (fromJust e) # set text "Roll was a 7."
       return ()
     acc) (return ()) tiles
 
@@ -428,6 +451,10 @@ endTurn m@CatanMVars{..} = do
   roll <- takeMVar rollVar
   liftIO $ do putStr "roll: "
               print roll
+  let roll7prompt = if roll == 7 then " Place the robber on a new tile." else ""
+  let rollStr = "Roll was a " ++ (show roll) ++ "." ++ roll7prompt
+  e <- getElementById w "roll"
+  _ <- element (fromJust e) # set text rollStr
   e <- getElementById w "player"
   _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
   re <- getElementById w "resources"
