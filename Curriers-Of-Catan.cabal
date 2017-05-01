@@ -24,7 +24,7 @@ license:             GPL-3
 -- The file containing the license text.
 license-file:        LICENSE
 
-data-files:          Catan
+-- data-files:          src
 
 -- The package author(s).
 author:              Dylan Mann and David Cao
@@ -63,7 +63,7 @@ executable Curriers-Of-Catan
                        threepenny-gui >=0.7.0.1, lifted-base >=0.2.3.8,
                        MonadRandom >=0.5.1,transformers-base >=0.4.4
   -- Directories containing source files.
-  hs-source-dirs: Catan, Catan/static
+  hs-source-dirs: src
 
   -- Base language which the package is written in.
   default-language:    Haskell2010

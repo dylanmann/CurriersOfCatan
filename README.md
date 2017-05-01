@@ -6,7 +6,7 @@
 [Hosted on Github](https://github.com/cis552/project_mannd_davidcao-proj)
 
 ##### **Instructions to Run**
-Simply type `cabal run` on the command line from the root directory of the project
+Simply type `cabal run` on the command line from the root directory of the project and navigate to localhost:8023 in your web browser to play
 
 ##### **Description of Classes In Order of Reading:**
 ##### [Board.hs](Catan/Board.hs):
