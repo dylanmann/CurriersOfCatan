@@ -127,7 +127,11 @@ takeTurn playedCard = do
   when (action == EndGame) $ error "Handle end of game better than this"
   log action
   turnOver <- handleAction action
+  log "after handle action"
   when turnOver $ advancePlayer False
+  game <- S.get
+  when (action == PlayKnight) $ (log "should be putting game?")
+  when (action == PlayKnight) $ putMVar gameVar game
   g <- S.get
   log "putting take turn"
   _ <- tryTakeMVar gameVar

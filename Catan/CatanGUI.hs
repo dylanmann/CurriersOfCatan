@@ -69,6 +69,7 @@ setup CatanMVars{..} w = void $ do
                  #+ [element subHeading
                  , element rollResult
                  , drawResources game
+                 , drawKnights game
                  , drawTrading game
                  , drawCards game]
   
@@ -86,7 +87,7 @@ setup CatanMVars{..} w = void $ do
 
   _ <- getBody w #+ [ element container ]
 
-  on UI.click endturnbutton $ \_ -> endTurn $ mvars
+  on UI.click endturnbutton $ \_ -> endTurn mvars
 
   on UI.click buildRoadButton $
       \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (BuildRoad i1 i2) mvars
@@ -115,15 +116,12 @@ drawResources Game{..} = do
     # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   return resourcesp
 
--- <div class="list-group">
---   <button type="button" class="list-group-item list-group-item-action active">
---     Cras justo odio
---   </button>
---   <button type="button" class="list-group-item list-group-item-action">Dapibus ac facilisis in</button>
---   <button type="button" class="list-group-item list-group-item-action">Morbi leo risus</button>
---   <button type="button" class="list-group-item list-group-item-action">Porta ac consectetur ac</button>
---   <button type="button" class="list-group-item list-group-item-action" disabled>Vestibulum at eros</button>
--- </div>
+drawKnights :: Game -> UI Element
+drawKnights Game{..} = do 
+  knightsp <- UI.p
+    # set UI.id_ "knights"
+    # set UI.text ("Knights: " ++ (show (knights (getPlayer currentPlayer players))))
+  return knightsp
 
 drawCards :: Game -> UI Element
 drawCards Game{..} = do
@@ -133,6 +131,14 @@ drawCards Game{..} = do
         # set UI.class_ "card list-group-item list-group-item-action"
         # set UI.type_ "button"
         #+ [string (show c)]
+
+      on UI.click button $ \_ -> 
+        case c of 
+          VictoryPoint -> return ()
+          Knight -> do
+            handlePlayKnight mvars
+          Progress _ -> return ()
+
       return button) devcards
   let pendingCardsList = map (\c -> do
       button <- UI.button
@@ -431,7 +437,7 @@ sendAction action CatanMVars{..} = do
   game@Game{..} <- takeMVar gameVar
   renderGame game
   liftIO $ mapM_ putStrLn errorMessage
-  when (action == PlayKnight) (robberSequence game)
+  -- when (action == PlayKnight) (robberSequence game)
   return game
 
 
@@ -449,6 +455,7 @@ turnButtons b = do
 
 robberSequence :: Game -> UI ()
 robberSequence Game{..} = do
+  log "robber sequence"
   w <- askWindow
   let CatanMVars{..} = mvars
   tiles <- getElementsByClassName w "tile"
@@ -483,6 +490,14 @@ robberSequence Game{..} = do
       log "UI took extra game"
       return ()
     acc) (return ()) tiles
+
+handlePlayKnight :: CatanMVars -> UI ()
+handlePlayKnight m@CatanMVars{..} = do
+  log "UI taking game Action"
+  g@Game{..} <- sendAction PlayKnight m
+  log "UI took game Action"
+  -- liftIO $ threadDelay (400 * 1000)
+  robberSequence g
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
@@ -543,6 +558,8 @@ renderGame game@Game{..} = do
   e <- getElementById w "mainHex"
   re <- getElementById w "resources"
   _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
+  ke <- getElementById w "knights"
+  _ <- element (fromJust ke) # set UI.text ("Knights: " ++ (show (knights (getPlayer currentPlayer players))))
   _ <- (return $ fromJust $ e) #+ [foreground game]
   cdiv <- getElementById w "devcardsdiv"
   menu <- getElementById w "menu"
