@@ -18,6 +18,7 @@ playGame runs the game.  Project was made for Advanced Programming course
 
 module GamePlay where
 
+import Prelude hiding(log)
 import CatanGUI
 import Control.Monad (liftM2, unless, when)
 import Control.Monad.Random.Class(getRandomR)
@@ -73,6 +74,9 @@ initialize = do
   return $
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
+log :: String -> MyState ()
+log = liftIO $ print $ "[GAME]  " ++ str
+
 -- | rolls the dice, reacts, and changes the turn to the next player's turn
 advancePlayer :: MyState ()
 advancePlayer = do
@@ -88,9 +92,9 @@ advancePlayer = do
     4  -> allocateRewards Four
     5  -> allocateRewards Five
     6  -> allocateRewards Six
-    7  -> do liftIO (print "GAME putting roll seven")
+    7  -> do log "putting roll seven"
              putMVar gameVar newGame
-             liftIO (print "GAME put roll seven")
+             log " put roll seven"
              rollSeven
     8  -> allocateRewards Eight
     9  -> allocateRewards Nine
@@ -117,14 +121,14 @@ takeTurn playedCard = do
   CatanMVars{..} <- getCatanMVars
   action <- takeMVar actionVar
   when (action == EndGame) $ error "Handle end of game better than this"
-  liftIO $ print action
+  log action
   turnOver <- handleAction action
   when turnOver advancePlayer
   g <- S.get
-  liftIO (print "GAME putting take turn")
+  log " putting take turn"
   _ <- tryTakeMVar gameVar
   putMVar gameVar g
-  liftIO (print "GAME put take turn")
+  log "put take turn"
   resetErr
   unless turnOver $ takeTurn $ playedCard || isPlayedCard action
 

@@ -3,6 +3,8 @@
 
 module CatanGUI (beginGUI) where
 
+
+import Prelude hiding(log)
 import           Control.Monad(when, void)
 
 import qualified Graphics.UI.Threepenny      as UI
@@ -343,12 +345,12 @@ robberSequence Game{..} = do
       element tile # set SVG.fill color
     on UI.click tile $ \_ -> do
       index <- get UI.value tile
-      liftIO $ print "UI putting robber"
+      log "UI putting robber"
       putMVar robberVar (read index)
-      liftIO $ print "UI taking game robber"
+      log "UI taking game robber"
       _ <- tryTakeMVar gameVar
       g <- takeMVar gameVar
-      liftIO $ print "UI took game robber"
+      log "UI took game robber"
       renderGame g
       disableClicking board
       liftIO $ threadDelay 10000
@@ -357,18 +359,18 @@ robberSequence Game{..} = do
         Nothing -> return ()
         Just ps -> let color = snd $ head ps in
                   putMVar colorVar color
-      liftIO $ print "UI taking extra game"
+      log "UI taking extra game"
       _ <- takeMVar gameVar
-      liftIO $ print "UI took extra game"
+      log "UI took extra game"
       return ()
     acc) (return ()) tiles
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do
   w <- askWindow
-  liftIO $ print "UI taking game Action"
+  log "UI taking game Action"
   g@Game{..} <- sendAction EndTurn m
-  liftIO $ print "UI took game Action"
+  log "UI took game Action"
   roll <- takeMVar rollVar
   liftIO $ do putStr "roll: "
               print roll
@@ -432,3 +434,6 @@ resetBoard board = do
 
 instance MonadBase IO UI where
   liftBase = liftIO
+
+log :: String -> UI ()
+log str = log $ "[UI]  " ++ str
