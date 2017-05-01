@@ -1,7 +1,7 @@
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall -fno-warn-type-defaults #-}
 {-# LANGUAGE RecordWildCards, MultiParamTypeClasses #-}
 
-module CatanGUI (beginGUI) where
+module Catan.CatanGUI (beginGUI) where
 
 
 import Prelude hiding(log)
@@ -13,7 +13,7 @@ import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
 import           Control.Concurrent.MVar.Lifted
 import           Data.Maybe(fromJust)
-import           Types
+import           Catan.Types
 import           Control.Monad.Base
 import Control.Concurrent(threadDelay)
 

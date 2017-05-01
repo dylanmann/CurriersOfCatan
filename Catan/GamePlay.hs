@@ -16,10 +16,10 @@ playGame runs the game.  Project was made for Advanced Programming course
 {-# OPTIONS -fwarn-tabs -fwarn-incomplete-patterns -Wall #-}
 {-# LANGUAGE FlexibleContexts, RecordWildCards, NamedFieldPuns #-}
 
-module GamePlay where
+module Catan.GamePlay where
 
 import Prelude hiding(log)
-import CatanGUI
+import Catan.CatanGUI
 import Control.Monad (liftM2, unless, when)
 import Control.Monad.Random.Class(getRandomR)
 import Control.Monad.Random(MonadRandom)
@@ -28,8 +28,8 @@ import Control.Monad.IO.Class(liftIO)
 import qualified Control.Monad.State as S
 import Control.Concurrent.MVar.Lifted
 import Control.Concurrent(forkIO)
-import Types
-import Actions
+import Catan.Types
+import Catan.Actions
 
 main :: IO Name
 main = playGame
