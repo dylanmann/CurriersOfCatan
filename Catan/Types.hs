@@ -244,7 +244,7 @@ defaultBuildings :: [Building]
 defaultBuildings = zipWith Settlement defaultColorOrder defaultBuildingLocations
 
 defaultRoads :: Roads
-defaultRoads = map Road $ (uncurry zip3) (unzip defaultRoadLocations) defaultColorOrder
+defaultRoads = map Road $ uncurry zip3 (unzip defaultRoadLocations) defaultColorOrder
 
 instance Show Game where
   show Game{..} = unlines

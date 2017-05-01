@@ -70,12 +70,12 @@ initialize = do
   d <- shuffleM devCards
   let p = defaultPlayers
   m <- makeMVars
-  let des = (desert b)
+  let des = desert b
   return $
    Game b p defaultRoads defaultBuildings des Nothing Nothing d White Nothing [] m
 
 log :: Show a => a -> MyState ()
-log str = liftIO $ do putStr $ "[GAME]  "
+log str = liftIO $ do putStr "[GAME]  "
                       print str
 
 
@@ -163,7 +163,7 @@ endTurn = do
 playGame :: IO Name
 playGame = do
   game@Game{..} <- liftIO initialize
-  let guiThread = forkIO $ beginGUI $ mvars
+  let guiThread = forkIO $ beginGUI mvars
   _ <- guiThread
   newg <- S.execStateT (advancePlayer True) game
   putMVar (gameVar mvars) newg

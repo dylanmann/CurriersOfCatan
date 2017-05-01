@@ -218,8 +218,8 @@ playCard card = do
 -- | play a given progress card, given that it is valid
 playMonopoly :: Resource -> MyState Bool
 playMonopoly r = do
-    success <- playCard $ Progress RoadBuilding
-    if success then return False else do
+    success <- playCard $ Progress Monopoly
+    if not success then return False else do
         game@Game{..} <- S.get
         let newPs = foldr (step currentPlayer) players (allPlayers players)
         S.put $ game {players = newPs}
@@ -231,41 +231,52 @@ playMonopoly r = do
 playRoadBuilding :: CornerLocation -> CornerLocation -> CornerLocation -> CornerLocation -> MyState Bool
 playRoadBuilding c1 c2 c3 c4 = do
     success <- playCard $ Progress RoadBuilding
-    if success then return False else do
+    if not success then return False else do
         game@Game{..} <- S.get
         case (mkRoad (c1, c2, currentPlayer), mkRoad (c3, c4, currentPlayer)) of
             (Just r1, Just r2) -> do
-                v1 <- validRoad r1
-                v2 <- validRoad r2
-                let newRoads = r1:r2:roads
-                if v1 && v2 then do
-                    S.put(game { roads = newRoads,
-                                 longestRoad = newLongestRoad longestRoad newRoads})
-                    return True
-                else err "invalid road choices"
+                v1 <- validRoad r1 roads
+                v2 <- validRoad r2 roads
+                if v1 then do
+                    let newRoads = r1:roads
+                    valid2 <- validRoad r2 newRoads
+                    if valid2 then do
+                        S.put(game { roads = r2:newRoads,
+                                     longestRoad = newLongestRoad longestRoad newRoads})
+                        return True
+                        else err "second road is invalid"
+                else if v2 then do
+                    let newRoads = r2:roads
+                    valid1 <- validRoad r1 newRoads
+                    if valid1 then do
+                        S.put(game { roads = r1:newRoads,
+                                  longestRoad = newLongestRoad longestRoad newRoads})
+                        return True
+                        else err "first road is invalid"
+                    else err "invalid road choices"
             (_, _) -> err "you cannot build roads there"
 
 playYearOfPlenty :: Resource -> Resource -> MyState Bool
 playYearOfPlenty r1 r2 = do
     success <- playCard $ Progress YearOfPlenty
-    if success then return False else do
+    if not success then return False else do
         game@Game{..} <- S.get
         S.put(game{players = recieve [r1,r2] currentPlayer players})
         return True
 
 -- | check if a road is unique and connects to existing roads
-validRoad :: Road -> MyState Bool
-validRoad r = do
+validRoad :: Road -> Roads -> MyState Bool
+validRoad r rs = do
     Game{..} <- S.get
     let (_,_,c) = getRoad r
         connects r1 r2 = let (l1,l2,c1)   = getRoad r1
                              (l3, l4, c2) = getRoad r2 in
             c1 == c2 && (not . null $ [l1, l2] `List.intersect` [l3, l4])
-        containsRoad = any sameRoad roads where
+        containsRoad = any sameRoad rs where
             sameRoad r2 = let (old1, old2, c1) = getRoad r2 in
                 (r == r2) || (getRoad r == (old2, old1, c1))
         unique = not containsRoad
-        contiguous = any (connects r) roads
+        contiguous = any (connects r) rs
     return $ unique && contiguous && c == currentPlayer
 
 -- | update a player's army size count and check for the largest army condition
@@ -314,7 +325,7 @@ buyCard = do
     case maybeCard of
         Nothing -> err "no cards left to buy"
         Just card -> do
-            log ("drew: " ++ (show card))
+            log ("drew: " ++ show card)
             let c = currentPlayer
                 newPs = spend [Ore, Wool, Grain] c players
                 validP = validPlayer $ getPlayer c newPs
@@ -355,14 +366,14 @@ gameOver = do
 getCatanMVars :: MyState CatanMVars
 getCatanMVars = do
     Game{..} <- S.get
-    return $ mvars
+    return mvars
 
 -- | called after the roll in the main thread is a 7.
 --   Moves robber and penalizes players with too many resources.
 rollSeven :: MyState ()
 rollSeven = do CatanMVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
-               log $ "penalty victims: " ++ (show victims)
+               log $ "penalty victims: " ++ show victims
                moveRobber
 
 -- | method that asks the user which of the possibilities they would like to steal
@@ -390,7 +401,7 @@ cheat rs = do
     return True
 
 log :: Show a => a -> MyState ()
-log str = liftIO $ do putStr $ "[GAME]  "
+log str = liftIO $ do putStr "[GAME]  "
                       print str
 
 

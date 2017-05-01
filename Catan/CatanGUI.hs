@@ -12,8 +12,7 @@ import           Graphics.UI.Threepenny.Core
 import qualified Graphics.UI.Threepenny.SVG.Elements  as SVG
 import qualified Graphics.UI.Threepenny.SVG.Attributes  as SVG hiding (filter, mask)
 import           Control.Concurrent.MVar.Lifted
-import           Data.Maybe(fromJust, mapMaybe)
-import           Data.List(intercalate)
+import           Data.Maybe(fromJust)
 import           Types
 import           Control.Monad.Base
 import Control.Concurrent(threadDelay)
@@ -26,7 +25,7 @@ hexSize :: Num a => a
 hexSize = 60
 
 beginGUI :: CatanMVars -> IO ()
-beginGUI cmvars = do
+beginGUI cmvars =
   startGUI defaultConfig { jsCustomHTML = Just "catan.html",
                            jsStatic = Just "static",
                            jsLog = \_ -> putStr "" } (setup cmvars)
@@ -35,9 +34,8 @@ bootstrapRow :: [UI Element] -> UI Element
 bootstrapRow elems = UI.div # set UI.class_ "row" #+ elems
 
 mkButton :: String -> String -> UI Element
-mkButton buttonTitle classes = do
-  button <- UI.button #. ("btn myspacing " ++ classes) # set UI.type_ "button" #+ [string buttonTitle]
-  return button
+mkButton buttonTitle classes =
+  UI.button #. ("btn myspacing " ++ classes) # set UI.type_ "button" #+ [string buttonTitle]
 
 setup :: CatanMVars -> Window -> UI ()
 setup CatanMVars{..} w = void $ do
@@ -47,9 +45,9 @@ setup CatanMVars{..} w = void $ do
   game@Game{..} <- takeMVar gameVar
 
   heading <- UI.h1 # set text "Curriers of Catan"
-  subHeading <- UI.h2 # set text ("Current Player: " ++ (show currentPlayer))
+  subHeading <- UI.h2 # set text ("Current Player: " ++ show currentPlayer)
                       # set UI.id_ "player"
-  rollResult <- UI.h4 # set text ("Roll: " ++ (show roll)) # set UI.id_ "roll"
+  rollResult <- UI.h4 # set text ("Roll: " ++ show roll) # set UI.id_ "roll"
 
   endturnbutton   <- mkButton "End Turn" "btn-outline-danger btn-sm"
   buildRoadButton <- mkButton "Build Road" "btn-outline-primary btn-sm"
@@ -90,16 +88,16 @@ setup CatanMVars{..} w = void $ do
   on UI.click endturnbutton $ \_ -> endTurn mvars
 
   on UI.click buildRoadButton $
-      \_ -> makeCorners $ \i1 -> makeCorners $ (\i2 -> do _ <- sendAction (BuildRoad i1 i2) mvars
-                                                          return ())
+      \_ -> makeCorners $ \i1 -> makeCorners (\i2 -> do _ <- sendAction (BuildRoad i1 i2) mvars
+                                                        return ())
 
   on UI.click buildSettButton $
-      \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildSettlement index) mvars
-                                        return ())
+      \_ -> makeCorners (\index -> do _ <- sendAction (BuildSettlement index) mvars
+                                      return ())
 
   on UI.click buildCityButton $
-      \_ -> makeCorners $ (\index -> do _ <- sendAction (BuildCity index) mvars
-                                        return ())
+      \_ -> makeCorners (\index -> do _ <- sendAction (BuildCity index) mvars
+                                      return ())
 
   on UI.click buyCardButton $ \_ -> do
       _ <- sendAction BuyCard mvars
@@ -110,18 +108,16 @@ setup CatanMVars{..} w = void $ do
       return ()
 
 drawResources :: Game -> UI Element
-drawResources Game{..} = do
-  resourcesp <- UI.p
+drawResources Game{..} =
+  UI.p
     # set UI.id_ "resources"
-    # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
-  return resourcesp
+    # set UI.text ("Resources: " ++ show (resources (getPlayer currentPlayer players)))
 
 drawKnights :: Game -> UI Element
-drawKnights Game{..} = do
-  knightsp <- UI.p
+drawKnights Game{..} =
+  UI.p
     # set UI.id_ "knights"
     # set UI.text ("Knights: " ++ (show (knights (getPlayer currentPlayer players))))
-  return knightsp
 
 drawCards :: Game -> UI Element
 drawCards g@Game{..} = do
@@ -136,16 +132,29 @@ drawCards g@Game{..} = do
         case c of
           VictoryPoint -> return ()
           Knight -> handlePlayKnight g mvars
+          Progress Monopoly -> do
+            maybeRes <- getRadioSelection "from"
+            case maybeRes of
+              Just r -> do
+                _ <- sendAction (PlayMonopoly r) mvars
+                return ()
+              _ -> return ()
+          Progress YearOfPlenty -> do
+            maybeRes1 <- getRadioSelection "from"
+            maybeRes2 <- getRadioSelection "to"
+            case (maybeRes1, maybeRes2) of
+              (Just r1, Just r2) -> do
+                _ <- sendAction (PlayYearOfPlenty r1 r2) mvars
+                return ()
+              (_,_) -> return ()
           Progress _ -> return ()
 
       return button) devcards
-  let pendingCardsList = map (\c -> do
-      button <- UI.button
-        # set UI.class_ "card list-group-item"
-        # set UI.enabled False
-        # set UI.type_ "button"
-        #+ [string ((show c) ++ " (PENDING)")]
-      return button) pendingCards
+  let pendingCardsList = map (\c -> UI.button
+              # set UI.class_ "card list-group-item"
+              # set UI.enabled False
+              # set UI.type_ "button"
+              #+ [string (show c ++ " (PENDING)")]) pendingCards
   cardsTitle <- UI.h4 # set text "Development cards:"
   list <- UI.div
     # set UI.class_ "list-group cards"
@@ -155,6 +164,18 @@ drawCards g@Game{..} = do
 -- is there a nicer way to do this?
 resourceRadioValues :: [Resource]
 resourceRadioValues = [Brick, Lumber, Ore, Grain, Wool]
+
+getRadioSelection :: String -> UI (Maybe Resource)
+getRadioSelection t = foldr (checkRadio t) (return Nothing) resourceRadioValues
+  where
+    checkRadio tag res acc = do
+      let r = show res
+      w <- askWindow
+      let radioid = tag ++ r
+      maybeElem <- getElementById w radioid
+      let e = fromJust maybeElem
+      checked <- get UI.checked e
+      if checked then return (Just res) else acc
 
 drawTrading :: Game -> UI Element
 drawTrading Game{..} = do
@@ -166,8 +187,8 @@ drawTrading Game{..} = do
   form <- UI.div #+ [UI.h4 # set text "Trade With Bank:", fromDiv, toDiv, element submitButton]
 
   on UI.click submitButton $ \_ -> do
-      maybeFrom <- foldr (checkRadio "from") (return Nothing) resourceRadioValues
-      maybeTo <- foldr (checkRadio "to") (return Nothing) resourceRadioValues
+      maybeFrom <- getRadioSelection "from"
+      maybeTo <- getRadioSelection "to"
       case (maybeFrom, maybeTo) of
         (Just r1, Just r2) -> do
           _ <- sendAction (TradeWithBank r1 r2 1) mvars
@@ -184,15 +205,6 @@ drawTrading Game{..} = do
           , UI.span # set UI.class_ "custom-control-indicator"
           , UI.span # set UI.class_ "custom-control-description" # set text ("   " ++ r)]
 
-    checkRadio tag res acc = do
-      let r = show res
-      w <- askWindow
-      let radioid = tag ++ r
-      maybeElem <- getElementById w radioid
-      let e = fromJust maybeElem
-      checked <- get UI.checked e
-      if checked then return (Just res) else acc
-
 
 hexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 hexPoints x1 y1 r1 =
@@ -203,7 +215,7 @@ hexPoints x1 y1 r1 =
              r = fromIntegral r1
              angle_deg = 60 * i + 30
              angle_rad = pi / 180 * angle_deg in
-         show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
+         show (x + r * cos angle_rad) ++ "," ++ show (y + r * sin angle_rad)
 
 flatHexPoints ::  (Integral t1, Integral t2, Integral t3) => t1 -> t2 -> t3 -> String
 flatHexPoints x1 y1 r1 =
@@ -214,7 +226,7 @@ flatHexPoints x1 y1 r1 =
              r = fromIntegral r1
              angle_deg = 60 * i
              angle_rad = pi / 180 * angle_deg in
-         show (x + r * (cos angle_rad)) ++ "," ++ show (y + r * (sin angle_rad))
+         show (x + r * cos angle_rad) ++ "," ++ show (y + r * sin angle_rad)
 
 foreground :: Game -> UI Element
 foreground Game{..} = do
@@ -358,20 +370,20 @@ background game@Game{..} = do
     # set SVG.stroke "rgb(34, 49, 63)"
     # set SVG.stroke_width "1"
     # set SVG.fill "rgb(129,207,224)"
-  let g = SVG.g # set SVG.id "hexGroup" #+ (makeHexGroup board)
+  let g = SVG.g # set SVG.id "hexGroup" #+ makeHexGroup board
   let harbors = foldr makeHabors [] cornerIndices
-  let elemList = ((element bg) : (harbors ++ (g : [foreground game])))
+  let elemList = element bg : (harbors ++ (g : [foreground game]))
   return context #+ elemList
   where
     makeHabors cornerLoc acc =
-      case (getCorner board cornerLoc) of
+      case getCorner board cornerLoc of
         (_, Just GenericHarbor) ->
           let (x,y) = cornerToPixel cornerLoc
               h = SVG.circle
                 # set SVG.r (show (hexSize/2))
                 # set SVG.cx (show x)
                 # set SVG.cy (show y)
-                # set SVG.fill (getHarborColor cornerLoc)
+                # set SVG.fill "rgb(108, 122, 137)"
                 # set SVG.stroke "rgb(34, 49, 63)"
                 # set SVG.stroke_width "1"
           in
@@ -382,23 +394,19 @@ background game@Game{..} = do
                 # set SVG.r (show (hexSize/2))
                 # set SVG.cx (show x)
                 # set SVG.cy (show y)
-                # set SVG.fill (getHarborColor cornerLoc)
+                # set SVG.fill (getHarborColor r)
                 # set SVG.stroke "rgb(34, 49, 63)"
                 # set SVG.stroke_width "1"
           in
           h:acc
         (_, Nothing) -> acc
 
-    getHarborColor l = case (getCorner board l) of
-                        (_, Just GenericHarbor) -> "rgb(108, 122, 137)"
-                        (_, Just (SpecialHarbor r)) ->
-                          case r of
-                            Brick -> "rgb(179, 94, 30)"
-                            Lumber -> "rgb(30, 130, 76)"
-                            Ore -> "rgb(190, 144, 212)"
-                            Grain -> "rgb(135, 211, 124)"
-                            Wool -> "rgb(245, 215, 110)"
-                        (_, Nothing) -> ""
+    getHarborColor r = case r of
+                        Brick -> "rgb(179, 94, 30)"
+                        Lumber -> "rgb(30, 130, 76)"
+                        Ore -> "rgb(190, 144, 212)"
+                        Grain -> "rgb(135, 211, 124)"
+                        Wool -> "rgb(245, 215, 110)"
 
 colorToRGB :: Color -> String
 colorToRGB c = case c of
@@ -415,7 +423,7 @@ cornerToPixel cl =
         x = hexSize * (q + r/2.0) * sqrt 3
         y = hexSize * 3.0/2.0 * r
         x' = x + 6 * hexSize
-        y' = y + 6 * hexSize + ((if t then negate else id) $ hexSize)
+        y' = y + 6 * hexSize + (if t then negate else id) hexSize
     in (round x', round y')
 
 
@@ -486,9 +494,9 @@ robberSequence Game{..} = do
                   putMVar colorVar color
       log "UI taking extra game"
       _ <- takeMVar gameVar
+      log "UI took extra game"
       e <- getElementById w "roll"
       _ <- element (fromJust e) # set text "Roll: 7"
-      log "UI took extra game"
       return ()
     acc) (return ()) tiles
 
@@ -507,11 +515,11 @@ endTurn m@CatanMVars{..} = do
   log "UI took game Action"
   roll <- takeMVar rollVar
   let roll7prompt = if roll == 7 then "\tPlace the robber on a new tile." else ""
-  let rollStr = "Roll: " ++ (show roll) ++ roll7prompt
+  let rollStr = "Roll: " ++ show roll ++ roll7prompt
   rolle <- getElementById w "roll"
   _ <- element (fromJust rolle) # set text rollStr
   e <- getElementById w "player"
-  _ <- element (fromJust e) # set text ("Current Player: " ++ (show currentPlayer))
+  _ <- element (fromJust e) # set text ("Current Player: " ++ show currentPlayer)
   liftIO $ threadDelay (400 * 1000)
   when (roll == 7) $ robberSequence g
 
@@ -519,7 +527,7 @@ makeCorners :: (CornerLocation -> UI ()) -> UI ()
 makeCorners onClick = do
   w <- askWindow
   e <- getElementById w "mainHex"
-  _ <- (return $ fromJust $ e) #+ (map draw cornerIndices)
+  _ <- return (fromJust e) #+ map draw cornerIndices
   turnButtons False
   return ()
   where draw l = do
@@ -557,26 +565,26 @@ renderGame game@Game{..} = do
   es <- getElementsByClassName w "render"
   e <- getElementById w "mainHex"
   re <- getElementById w "resources"
-  _ <- element (fromJust re) # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
+  _ <- element (fromJust re) # set UI.text ("Resources: " ++ show (resources (getPlayer currentPlayer players)))
   ke <- getElementById w "knights"
-  _ <- element (fromJust ke) # set UI.text ("Knights: " ++ (show (knights (getPlayer currentPlayer players))))
-  _ <- (return $ fromJust $ e) #+ [foreground game]
+  _ <- element (fromJust ke) # set UI.text ("Knights: " ++ show (knights (getPlayer currentPlayer players)))
+  _ <-  return (fromJust e) #+ [foreground game]
   cdiv <- getElementById w "devcardsdiv"
   menu <- getElementById w "menu"
-  _ <- (return $ fromJust $ menu) #+ [drawCards game]
-  foldr (\x acc -> delete x >> acc) (return ()) ((fromJust cdiv):es)
+  _ <- return (fromJust menu) #+ [drawCards game]
+  foldr (\x acc -> delete x >> acc) (return ()) (fromJust cdiv:es)
 
 resetBoard :: Board -> UI ()
 resetBoard board = do
   w <- askWindow
   es <- getElementsByClassName w "tile"
   e <- getElementById w "hexGroup"
-  _ <- (return $ fromJust $ e) #+ (makeHexGroup board)
+  _ <- return (fromJust e) #+ makeHexGroup board
   foldr (\x acc -> delete x >> acc) (return ()) es
 
 instance MonadBase IO UI where
   liftBase = liftIO
 
 log :: Show a => a -> UI ()
-log str = liftIO $ do putStr $ "[UI]  "
+log str = liftIO $ do putStr "[UI]  "
                       print str
