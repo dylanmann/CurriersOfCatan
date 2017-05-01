@@ -479,10 +479,10 @@ robberSequence Game{..} = do
       renderGame g
       disableClicking board
       liftIO $ threadDelay 10000
-      r <- tryTakeMVar stealVar
+      r <- takeMVar stealVar
       case r of
-        Nothing -> return ()
-        Just ps -> let color = snd $ head ps in
+        [] -> return ()
+        ps -> let color = snd $ head ps in
                   putMVar colorVar color
       log "UI taking extra game"
       _ <- takeMVar gameVar
@@ -498,8 +498,6 @@ handlePlayKnight g CatanMVars{..} = do
   putMVar actionVar PlayKnight
   log "put playknight"
   robberSequence g
-  g2 <- takeMVar gameVar
-  renderGame g2
 
 endTurn :: CatanMVars -> UI ()
 endTurn m@CatanMVars{..} = do

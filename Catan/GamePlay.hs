@@ -123,15 +123,18 @@ isPlayedCard _                  = False
 takeTurn :: Bool -> MyState ()
 takeTurn playedCard = do
   CatanMVars{..} <- getCatanMVars
+  log "taking action"
   action <- takeMVar actionVar
+  log "took action"
   when (action == EndGame) $ error "Handle end of game better than this"
   log action
+  game <- S.get
+  when (action == PlayKnight) $ do log "putting game knight"
+                                   putMVar gameVar game
+                                   log "putting game knight"
   turnOver <- handleAction action
   log "after handle action"
   when turnOver $ advancePlayer False
-  game <- S.get
-  when (action == PlayKnight) $ (log "should be putting game?")
-  when (action == PlayKnight) $ putMVar gameVar game
   g <- S.get
   log "putting take turn"
   _ <- tryTakeMVar gameVar
