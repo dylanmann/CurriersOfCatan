@@ -30,6 +30,7 @@ module Actions(handleAction,
 
                movePendingCards)
                where
+import Prelude hiding(log)
 
 import qualified Data.List as List
 import qualified Control.Monad.State as S
@@ -357,8 +358,7 @@ getCatanMVars = do
 rollSeven :: MyState ()
 rollSeven = do CatanMVars{..} <- getCatanMVars
                victims <- rollSevenPenalty
-               liftIO $ do
-                    log $ "penalty victims: " ++ (show victims)
+               log $ "penalty victims: " ++ (show victims)
                moveRobber
 
 -- | method that asks the user which of the possibilities they would like to steal
@@ -382,7 +382,7 @@ cheat rs = do
     S.put(game{players = recieve rs currentPlayer players})
     return True
 
-log :: String -> MyState
+log :: String -> MyState ()
 log str = liftIO $ print $ "[GAME]  " ++ str
 
 -- | prompts user thread for input and moves the robber to that location, with all the effects
@@ -393,7 +393,7 @@ moveRobber = do
     t <- takeMVar robberVar
     let options = mapMaybe (playerAtCorner board t) buildings
     S.put $ game{robberTile = t}
-    log "putting game move robber in actions")
+    log "putting game move robber in actions"
     putMVar gameVar $ game{robberTile = t}
     log "put game move robber in actions"
     case options of

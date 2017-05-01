@@ -87,9 +87,9 @@ setup CatanMVars{..} w = void $ do
                                         return ())
 
 
-drawResources :: Game -> UI Element 
+drawResources :: Game -> UI Element
 drawResources Game{..} = do
-  resourcesp <- UI.p 
+  resourcesp <- UI.p
     # set UI.id_ "resources"
     # set UI.text ("Resources: " ++ (show (resources (getPlayer currentPlayer players))))
   return resourcesp
@@ -97,7 +97,7 @@ drawResources Game{..} = do
 drawCards :: Game -> UI Element
 drawCards Game{..} = do
   let devcards = cards (getPlayer currentPlayer players)
-  let listitems = map (\c -> do 
+  let listitems = map (\c -> do
       button <- UI.button
         # set UI.class_ "button list-group-item"
         # set UI.type_ "button"
@@ -306,8 +306,8 @@ background game@Game{..} = do
   let g = SVG.g # set SVG.id "hexGroup" #+ (makeHexGroup board)
   return context #+ (element bg : g : [foreground game])
 
-  -- makeHabors board = 
-  --   let harborCorners = 
+  -- makeHabors board =
+  --   let harborCorners =
   --     [((0,-2, True), (0,-3))
   --     ,((1,-2, True), (2,-3))
   --     ,((2,-1, True), (3,-2))
@@ -319,8 +319,8 @@ background game@Game{..} = do
   --     ,((-2,0, True), (-2,-1))]
   --   map drawHarbors harborCorners
 
-  -- drawHarbors cornerInx hexInx = 
-  --   let (x, y) = h2p hexInx 
+  -- drawHarbors cornerInx hexInx =
+  --   let (x, y) = h2p hexInx
 
   -- h2p (q1, r1) =
   --   let q = fromIntegral q1
@@ -370,15 +370,12 @@ sendAction action CatanMVars{..} = do
   when (action == PlayKnight) (robberSequence game)
   return game
 
+
 disableClicking :: Board -> UI ()
 disableClicking board = do
   turnButtons True
   resetBoard board
 
-disableTiles = do
-  runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('click')})"
-  runFunction $ ffi "$('.tile').each(function(i){$(this).unbind('mouseenter mouseleave')})"
-  turnButtons True
 
 turnButtons :: Bool -> UI ()
 turnButtons b = do
@@ -477,7 +474,7 @@ renderGame :: Game -> UI ()
 renderGame game = do
   w <- askWindow
   es <- getElementsByClassName w "render"
-  e <- getElementById w "mainHex" 
+  e <- getElementById w "mainHex"
   _ <- (return $ fromJust $ e) #+ [foreground game]
   cdiv <- getElementById w "devcardsdiv"
   menu <- getElementById w "menu"
