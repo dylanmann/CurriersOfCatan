@@ -5,6 +5,9 @@
 
 [Hosted on Github](https://github.com/cis552/project_mannd_davidcao-proj)
 
+##### **Instructions to Run**
+Simply type `cabal run` on the command line from the root directory of the project
+
 ##### **Description of Classes In Order of Reading:**
 ##### [Board.hs](Catan/Board.hs):
 The class where all board-related datatypes are defined.  Contains the primitive board types and wraps unsafe operations to provide a total
@@ -37,3 +40,5 @@ used for rendering the board and accepting user input in a FRP style.
 
 [lifted-base](https://hackage.haskell.org/package/lifted-base)
 used for lifting mvar operations
+
+
