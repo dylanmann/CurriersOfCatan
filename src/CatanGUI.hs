@@ -29,7 +29,7 @@ beginGUI cmvars =
   startGUI defaultConfig { jsCustomHTML = Just "catan.html",
                            jsStatic = Just "static",
                            jsLog = \_ -> putStr "" ,
-                           jsPort = Just 8023,
+                           jsPort = Just 8022,
                            jsWindowReloadOnDisconnect = True} (setup cmvars)
 
 bootstrapRow :: [UI Element] -> UI Element
