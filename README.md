@@ -5,7 +5,7 @@
 
 ![Screenshot of gameplay](static/screenshot.PNG?raw=true "Screenshot")
 
-[Hosted on Github](https://github.com/dylanmann/CurriersOfCatan/edit/master/README.md)
+[Hosted on Github](https://github.com/dylanmann/CurriersOfCatan/)
 
 ##### **Instructions to Run**
 Run `cabal install --only-dependencies` from the project root folder, then `cd src` and run `ghc GamePlay.hs && ./GamePlay` and navigate to localhost:8022 in your web browser to play.
